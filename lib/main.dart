@@ -133,25 +133,12 @@ class _MyHomePageState extends State<MyHomePage> {
                       color: Colors.red[500]!
                     //color: ,
                     ),
-                    borderRadius: BorderRadius.all(Radius.circular(20))
+                    borderRadius: const BorderRadius.all(Radius.circular(20))
                   )
                 );
               })
             ],
             ),
-          Positioned(
-              width: 600,
-              height: 100,
-              left: 20,
-              top: 40,
-              child: Text(infoText,
-                  style: const TextStyle(
-                      color: Colors.black,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 20
-                  )
-              )
-          ),
     ]);
   }
 }
