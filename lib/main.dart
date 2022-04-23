@@ -5,6 +5,7 @@ import 'package:tile_state/tile_state.dart';
 import 'package:geojson_vt_dart/index.dart';
 import 'package:flutter_map/plugin_api.dart';
 import 'dart:ui' as dartui;
+import 'dart:math';
 import 'dart:convert';
 import 'package:flutter/services.dart' show rootBundle;
 
@@ -37,6 +38,12 @@ class MyHomePage extends StatefulWidget {
   @override
   State<MyHomePage> createState() => _MyHomePageState();
 }
+
+class  Epsg3857Infinite extends Epsg3857 {
+  @override
+  final infinite = true;
+}
+
 
 class _MyHomePageState extends State<MyHomePage> {
 
@@ -72,11 +79,13 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   Widget build(BuildContext context) {
+
     return Stack(
         children: [
           FlutterMap(
             mapController: mapController,
             options: MapOptions(
+              //crs:  Epsg3857Infinite as Crs,
              // center: LatLng(51.5, -0.09),
               //center: LatLng(32.033638,	-84.398224), // us
               onTap: (tapPosition, point) {
@@ -113,9 +122,21 @@ class _MyHomePageState extends State<MyHomePage> {
                     'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
                     subdomains: ['a', 'b', 'c']),
               ),
-              SliceLayerWidget(index: geoJson, markerFunc: (feature, item) {
-                return const Text("M");
-              } )
+              SliceLayerWidget(index: geoJson, markerFunc: (feature, count) {
+                return Container(
+                child: FittedBox(
+                        fit: BoxFit.contain,
+                        child: Text("$count")
+                    ),
+                    decoration: BoxDecoration(
+                    border: Border.all(
+                      color: Colors.red[500]!
+                    //color: ,
+                    ),
+                    borderRadius: BorderRadius.all(Radius.circular(20))
+                  )
+                );
+              })
             ],
             ),
           Positioned(
@@ -152,7 +173,6 @@ class VectorPainter extends CustomPainter with ChangeNotifier {
 
   @override
   void paint(Canvas canvas, Size size) {
-
     tileState = TileState(mapState, const CustomPoint(256.0, 256.0));
 
     tileState!.loopOverTiles( (i,j, pos, matrix) {
@@ -208,7 +228,7 @@ class _SliceLayerWidgetState extends State<SliceLayerWidget> {
               height: height*1.25,
               child: RepaintBoundary (
                   child: CustomPaint(
-                      //child: FeatureDraw().drawMarkers(mapState, widget.index, mapState.onMoved, widget.markerFunc),
+                      child: FeatureDraw().drawClusters(mapState, widget.index, mapState.onMoved, widget.markerFunc),
                       isComplex: true, //Tells flutter to cache the painter.
                       painter: VectorPainter(mapState: mapState, index: widget.index, stream: mapState.onMoved)
                   )
@@ -222,6 +242,59 @@ class _SliceLayerWidgetState extends State<SliceLayerWidget> {
 
 
 class FeatureDraw {
+  Widget drawClusters(MapState mapState, index, stream, markerFunc) {
+
+    List<Positioned> markers = [];
+
+    var clusterZoom = 1;
+    var clusterFactor = pow(2,clusterZoom);
+
+    var tileState = TileState(mapState, const CustomPoint(256.0, 256.0));
+    var clusterPixels = 256 / clusterFactor; /// how much do we want to split the tilesize into, 32 = 8 chunks by 8
+    var center = clusterPixels / 2.0;
+
+    if(index != null) {
+
+      tileState.loopOverTiles( (i,j, pos, matrix) {
+
+        for( var clusterTileX = 0; clusterTileX < clusterFactor ; clusterTileX++) {
+
+          for( var clusterTileY = 0; clusterTileY < clusterFactor ; clusterTileY++) {
+
+            var innerTileFeatures = index.getTile(
+                tileState.getTileZoom().toInt() + clusterZoom, i * clusterFactor + clusterTileX, j * clusterFactor + clusterTileY);
+            if(innerTileFeatures != null) {
+              var count = innerTileFeatures.features.length;
+
+              if(count > 0) {
+                var tp = MatrixUtils.transformPoint(matrix,
+                    Offset((clusterTileX * clusterPixels + center).toDouble(), (clusterTileY * clusterPixels + center).toDouble()));
+
+                markers.add(
+                    Positioned(
+                        width: 30,
+                        height: 30,
+                        left: tp.dx, // + zoomTileX*32,
+                        top: tp.dy, // +zoomTileY*32,
+                        child: Transform.rotate(
+                            alignment: FractionalOffset.center,
+                            angle: -mapState.rotationRad,
+                            child: markerFunc == null ? FittedBox(
+                                fit: BoxFit.contain,
+                                child: Text("$count", style: const TextStyle(fontSize: 20))
+                            ) :  markerFunc( innerTileFeatures, count ),
+                        )
+                    )
+                );
+              }
+            }
+          }
+        }
+      });
+    }
+
+    return Stack(children: markers);
+  }
 
   Widget drawMarkers(MapState mapState, index, stream, markerFunc) {
 
@@ -255,11 +328,7 @@ class FeatureDraw {
                     height: 60,
                     left: tp.dx - 20,
                     top: tp.dy - 20,
-                    child: //Transform.rotate(
-                    // alignment: FractionalOffset.center,
-                    // angle: -mapState.rotationRad,
-                    // child:
-                    markerFunc == null ? Text("Missing") : markerFunc(
+                    child: markerFunc == null ? Text("Missing") : markerFunc(
                         feature, geom)),
                 //),
               );
