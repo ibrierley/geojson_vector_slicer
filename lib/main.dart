@@ -3,11 +3,13 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:tile_state/tile_state.dart';
 import 'package:geojson_vt_dart/index.dart';
+import 'package:geojson_vt_dart/transform.dart';
 import 'package:flutter_map/plugin_api.dart';
 import 'dart:ui' as dartui;
 import 'dart:math';
 import 'dart:convert';
 import 'package:flutter/services.dart' show rootBundle;
+
 
 void main() {
   runApp(const MyApp());
@@ -48,7 +50,7 @@ class  Epsg3857Infinite extends Epsg3857 {
 class _MyHomePageState extends State<MyHomePage> {
 
   late final MapController mapController;
-  GeoJSONVT? geoJson;
+  GeoJSONVT? geoJsonIndex;
   var infoText = 'No Info';
   var tileSize = 256.0;
   // Guessing best val here depends on a zoom level where there aren't many polys in display
@@ -63,11 +65,12 @@ class _MyHomePageState extends State<MyHomePage> {
 
       //https://raw.githubusercontent.com/Azure-Samples/AzureMapsCodeSamples/master/AzureMapsCodeSamples/Common/data/geojson/US_County_Boundaries.json
       // https://www.mapchart.net/usa-counties.html
-      var json = jsonDecode(await rootBundle.loadString('assets/US_County_Boundaries.json'));
+      ///var json = jsonDecode(await rootBundle.loadString('assets/US_County_Boundaries.json'));
+      var json = jsonDecode(await rootBundle.loadString('assets/ids.json'));
 
-      geoJson = GeoJSONVT(json, {
+      geoJsonIndex = GeoJSONVT(json, {
         'debug' : 0,
-        'buffer' : 64,
+        'buffer' : 0,
         'indexMaxZoom': 14,
         'indexMaxPoints': 10000000,
         'tolerance' : 0, // 1 is probably ok, 2+ may be odd if you have adjacent polys lined up and gets simplified
@@ -93,7 +96,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
                 var x = (pt.x / tileSize).floor();
                 var y = (pt.y / tileSize).floor();
-                var tile = geoJson!.getTile(14, x, y);
+                var tile = geoJsonIndex!.getTile(14, x, y);
 
                 if(tile != null) {
                   for (var feature in tile.features) {
@@ -122,23 +125,30 @@ class _MyHomePageState extends State<MyHomePage> {
                     'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
                     subdomains: ['a', 'b', 'c']),
               ),
-              SliceLayerWidget(index: geoJson, markerFunc: (feature, count) {
-                return Container(
-                child: FittedBox(
+              SliceLayerWidget(
+                clusters: true,
+                index: geoJsonIndex,
+                drawFunc: (feature, count) {
+                  return Container(
+                    child: FittedBox(
                         fit: BoxFit.contain,
-                        child: Text("$count")
+                        child: Text("$count", style: const TextStyle(color: Colors.deepPurple),)
                     ),
                     decoration: BoxDecoration(
                     border: Border.all(
-                      color: Colors.red[500]!
-                    //color: ,
-                    ),
-                    borderRadius: const BorderRadius.all(Radius.circular(20))
-                  )
-                );
-              })
-            ],
-            ),
+                        color: Colors.deepPurple
+                      //color: ,
+                    ),)
+                  );
+                }),
+
+              SliceLayerWidget(
+                index: geoJsonIndex,
+                markers: true,
+                drawFunc: (feature, count) {
+                  return const Icon(Icons.free_breakfast, color: Colors.blue, size: 20);
+              }),
+            ]),
     ]);
   }
 }
@@ -164,6 +174,8 @@ class VectorPainter extends CustomPainter with ChangeNotifier {
 
     tileState!.loopOverTiles( (i,j, pos, matrix) {
       var tile = index?.getTile(tileState!.getTileZoom().toInt(), i, j);
+      //if(tile != null)
+      //  print("TILE ${tile!.minX * 256.0},${tile!.minY}   ${tile!.maxX}, ${tile!.maxY}");
 
       final featuresInTile = [];
 
@@ -188,9 +200,11 @@ class VectorPainter extends CustomPainter with ChangeNotifier {
 
 class SliceLayerWidget extends StatefulWidget {
   final GeoJSONVT? index;
-  final Function? markerFunc;
+  final Function? drawFunc;
+  final bool clusters;
+  final bool markers;
 
-  const SliceLayerWidget({Key? key, this.index, this.markerFunc}) : super(key: key); // : super(key: key);
+  const SliceLayerWidget({Key? key, this.index, this.drawFunc, this.clusters = false, this.markers = false}) : super(key: key); // : super(key: key);
 
   @override
   _SliceLayerWidgetState createState() => _SliceLayerWidgetState();
@@ -215,7 +229,12 @@ class _SliceLayerWidgetState extends State<SliceLayerWidget> {
               height: height*1.25,
               child: RepaintBoundary (
                   child: CustomPaint(
-                      child: FeatureDraw().drawClusters(mapState, widget.index, mapState.onMoved, widget.markerFunc),
+                      child: Stack(children: [
+                        if( widget.markers == true)
+                          FeatureDraw().drawMarkers( mapState, widget.index, mapState.onMoved, widget.drawFunc),
+                        if( widget.clusters == true)
+                          FeatureDraw().drawClusters(mapState, widget.index, mapState.onMoved, widget.drawFunc),
+                      ]),
                       isComplex: true, //Tells flutter to cache the painter.
                       painter: VectorPainter(mapState: mapState, index: widget.index, stream: mapState.onMoved)
                   )
@@ -238,7 +257,6 @@ class FeatureDraw {
 
     var tileState = TileState(mapState, const CustomPoint(256.0, 256.0));
     var clusterPixels = 256 / clusterFactor; /// how much do we want to split the tilesize into, 32 = 8 chunks by 8
-    var center = clusterPixels / 2.0;
 
     if(index != null) {
 
@@ -250,17 +268,26 @@ class FeatureDraw {
 
             var innerTileFeatures = index.getTile(
                 tileState.getTileZoom().toInt() + clusterZoom, i * clusterFactor + clusterTileX, j * clusterFactor + clusterTileY);
-            if(innerTileFeatures != null) {
+
+            if(innerTileFeatures != null && innerTileFeatures.features.length > 0) {
+
               var count = innerTileFeatures.features.length;
+
+                var bMin = transformPoint(innerTileFeatures.minX,innerTileFeatures.minY,256,1 << tileState.getTileZoom().toInt() + clusterZoom,innerTileFeatures.x,innerTileFeatures.y);
+                var bMax = transformPoint(innerTileFeatures.maxX,innerTileFeatures.maxY,256,1 << tileState.getTileZoom().toInt() + clusterZoom,innerTileFeatures.x,innerTileFeatures.y);
+
+                var bbX = ((bMax[0] - bMin[0]) / 2 + bMin[0]);
+                var bbY = ((bMax[1] - bMin[1]) / 2 + bMin[1]);
+
 
               if(count > 0) {
                 var tp = MatrixUtils.transformPoint(matrix,
-                    Offset((clusterTileX * clusterPixels + center).toDouble(), (clusterTileY * clusterPixels + center).toDouble()));
+                    Offset((clusterTileX * clusterPixels + bbX / clusterFactor).toDouble(), (clusterTileY * clusterPixels + bbY / clusterFactor).toDouble()));
 
                 markers.add(
                     Positioned(
-                        width: 30,
-                        height: 30,
+                        width: 40,
+                        height: 40,
                         left: tp.dx, // + zoomTileX*32,
                         top: tp.dy, // +zoomTileY*32,
                         child: Transform.rotate(
@@ -268,8 +295,8 @@ class FeatureDraw {
                             angle: -mapState.rotationRad,
                             child: markerFunc == null ? FittedBox(
                                 fit: BoxFit.contain,
-                                child: Text("$count", style: const TextStyle(fontSize: 20))
-                            ) :  markerFunc( innerTileFeatures, count ),
+                                child: Text("$count, ", style: const TextStyle(fontSize: 10))
+                            ) :  markerFunc( innerTileFeatures, "$count " ),
                         )
                     )
                 );
@@ -306,6 +333,7 @@ class FeatureDraw {
             }
             geomloop: for (var c = 0; c < geom.length; c++) {
               var pt = geom[c] is List ? geom[c] : geom;
+
               var tp = MatrixUtils.transformPoint(matrix,
                   Offset(pt[0].toDouble() - 0.0, pt[1].toDouble() - 0.0));
 
@@ -313,8 +341,8 @@ class FeatureDraw {
                 Positioned(
                     width: 60,
                     height: 60,
-                    left: tp.dx - 20,
-                    top: tp.dy - 20,
+                    left: tp.dx - 10,
+                    top: tp.dy - 10,
                     child: markerFunc == null ? Text("Missing") : markerFunc(
                         feature, geom)),
                 //),
