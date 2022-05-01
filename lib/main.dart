@@ -4,6 +4,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:tile_state/tile_state.dart';
 import 'package:geojson_vt_dart/index.dart';
 import 'package:geojson_vt_dart/transform.dart';
+import 'package:geojson_vt_dart/classes.dart';
 import 'package:flutter_map/plugin_api.dart';
 import 'dart:ui' as dartui;
 import 'dart:math';
@@ -65,16 +66,22 @@ class _MyHomePageState extends State<MyHomePage> {
 
       //https://raw.githubusercontent.com/Azure-Samples/AzureMapsCodeSamples/master/AzureMapsCodeSamples/Common/data/geojson/US_County_Boundaries.json
       // https://www.mapchart.net/usa-counties.html
-      ///var json = jsonDecode(await rootBundle.loadString('assets/US_County_Boundaries.json'));
-      var json = jsonDecode(await rootBundle.loadString('assets/ids.json'));
+      var json = jsonDecode(await rootBundle.loadString('assets/US_County_Boundaries.json'));
+      //var json = jsonDecode(await rootBundle.loadString('assets/ids.json'));
+      //final appDocDir = await getApplicationDocumentsDirectory();
+      //var geoJson = await featuresFromGeoJsonFile(File("${appDocDir.path}/assets/ids.json"));
+      //final data = await rootBundle.loadString('assets/ids.json');
+      //var json = await featuresFromGeoJson( data );
+      //var json = { 'pointList' : [[ -75.849253579389796, 47.6434349837781 ]] };
 
-      geoJsonIndex = GeoJSONVT(json, {
-        'debug' : 0,
-        'buffer' : 0,
-        'indexMaxZoom': 14,
-        'indexMaxPoints': 10000000,
-        'tolerance' : 0, // 1 is probably ok, 2+ may be odd if you have adjacent polys lined up and gets simplified
-        'extent': tileSize});
+      print("json is $json");
+      geoJsonIndex = GeoJSONVT(json, GeoJSONVTOptions(
+        debug : 0,
+        buffer : 0,
+        indexMaxZoom: 14,
+        indexMaxPoints: 10000000,
+        tolerance : 0, // 1 is probably ok, 2+ may be odd if you have adjacent polys lined up and gets simplified
+        extent: tileSize.toInt()));
       setState(() { });
     });
 
@@ -100,11 +107,12 @@ class _MyHomePageState extends State<MyHomePage> {
 
                 if(tile != null) {
                   for (var feature in tile.features) {
-                    var polygonList = feature['geometry'];
+                    var polygonList = feature.geometry;
 
-                    if (feature['type'] != 1) {
+                    if (feature.type != 1) {
                       if(isGeoPointInPoly(pt, polygonList, size: tileSize)) {
-                         infoText = "${feature['tags']['NAME']}, ${feature['tags']['COUNTY']} tapped";
+                         infoText = "${feature.tags['NAME']}, ${feature.tags['COUNTY']} tapped";
+                         print("Tapped $infoText");
                       }
                     }
                   }
@@ -143,6 +151,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 }),
 
               SliceLayerWidget(
+                noSlice: true,
                 index: geoJsonIndex,
                 markers: true,
                 drawFunc: (feature, count) {
@@ -203,8 +212,9 @@ class SliceLayerWidget extends StatefulWidget {
   final Function? drawFunc;
   final bool clusters;
   final bool markers;
+  final bool noSlice;
 
-  const SliceLayerWidget({Key? key, this.index, this.drawFunc, this.clusters = false, this.markers = false}) : super(key: key); // : super(key: key);
+  const SliceLayerWidget({Key? key, this.index, this.drawFunc, this.clusters = false, this.markers = false, this.noSlice = false}) : super(key: key); // : super(key: key);
 
   @override
   _SliceLayerWidgetState createState() => _SliceLayerWidgetState();
@@ -316,9 +326,11 @@ class FeatureDraw {
 
     List<Widget> markers = [];
 
+    var retrieveZoom = tileState.getTileZoom().toInt();
+
     tileState.loopOverTiles( (i,j, pos, matrix) {
       if (index != null) {
-        var tile = index.getTile(tileState.getTileZoom().toInt(), i, j);
+        var tile = index.getTile(retrieveZoom, i, j);
 
         final featuresInTile = [];
 
@@ -327,8 +339,8 @@ class FeatureDraw {
         }
 
         outerloop: for (var feature in featuresInTile) {
-          innerloop: for( var geom in feature['geometry'] ) {
-            if (feature['type'] != 1) {
+          innerloop: for( var geom in feature.geometry ) {
+            if (feature.type != 1) {
               break innerloop;
             }
             geomloop: for (var c = 0; c < geom.length; c++) {
@@ -365,18 +377,18 @@ class FeatureDraw {
     var delayedDrawHash = { 'anyOrderPaths': dartui.Path() };
 
     for (var feature in featuresInTile) {
-      if (feature['type'] == 3) {
+      if (feature.type == 3) {
         if (options.containsKey('polyDrawFunc')) {
           options['polyDrawFunc'](canvas, feature, pos, featuresInTile, delayedDrawHash);
         } else {
           drawPolylineDefault(canvas, feature, pos);
         }
-      } else if( feature['type'] == 1 ) {
+      } else if( feature.type == 1 ) {
         var style = Paint()
           ..strokeWidth = 0.5 / pos.scale
           ..color = Colors.blue
           ..style = PaintingStyle.stroke;
-        canvas.drawCircle(Offset(feature['geometry'][0][0].toDouble(),feature['geometry'][0][1].toDouble()),20,style);
+        canvas.drawCircle(Offset(feature.geometry[0][0].toDouble(),feature.geometry[0][1].toDouble()),20,style);
       }
     }
   }
@@ -394,7 +406,7 @@ class FeatureDraw {
 
     var p = dartui.Path();
 
-    for( var item in feature['geometry'] ) {
+    for( var item in feature.geometry ) {
       List<Offset> offsets = [];
       for (var c = 0; c < item.length; c++) {
         offsets.add(Offset(item[c][0].toDouble(), item[c][1].toDouble()));
@@ -408,8 +420,8 @@ class FeatureDraw {
   void batchCallsDraw(List<dynamic> featuresInTile, PositionInfo pos, Canvas canvas, [ Map options = const {} ]) {
     var superPath = dartui.Path();
     for (var feature in featuresInTile) {
-      if (feature['type'] == 3) {
-        for( var item in feature['geometry'] ) {
+      if (feature.type == 3) {
+        for( var item in feature.geometry ) {
           List<Offset> offsets = [];
           for (var c = 0; c < item.length; c++) {
             offsets.add(Offset(item[c][0].toDouble(), item[c][1].toDouble()));
