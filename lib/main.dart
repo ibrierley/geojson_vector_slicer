@@ -176,8 +176,8 @@ class _MyHomePageState extends State<MyHomePage> {
                           ..isAntiAlias = false;
                       }
                     },
-                    pointFunc: () { return CustomImages.plane; },
-                    lineStringFunc: () { return CustomImages.plane; },
+                    pointFunc: (TileFeature feature) { if(CustomImages.imageLoaded) return CustomImages.plane; },
+                    lineStringFunc: () { if(CustomImages.imageLoaded) return CustomImages.plane;},
                     polygonFunc: null, //() { return CustomImages.plane; },
                     polygonStyle: (feature) {
                       return Paint()
@@ -196,9 +196,11 @@ class _MyHomePageState extends State<MyHomePage> {
 
 class CustomImages {
   static late dartui.Image plane;
+  static late bool imageLoaded = false;
 
   void loadPlane() async {
     plane = await loadUiImage('assets/aeroplane.png');
+    imageLoaded = true;
   }
 
   Future<dartui.Image> loadUiImage(String imageAssetPath) async {
@@ -432,10 +434,15 @@ class GeoJSONVectorPainter extends CustomPainter with ChangeNotifier {
           paint = featurePaint;
         }
       }
-      
+
       if(feature.type == 1 ) { // point
         if(options.pointFunc != null) {
-          canvas.drawImage(options.pointFunc!(), Offset(feature.geometry[0][0].toDouble(), feature.geometry[0][1].toDouble()), Paint());
+          var image = options.pointFunc!(feature);
+          if(image != null) {
+            canvas.drawImage(image, Offset(
+                feature.geometry[0][0].toDouble(),
+                feature.geometry[0][1].toDouble()), Paint());
+          }
         }
       }
       if(feature.type == 2 || feature.type == 3) { // line = 2, poly = 3
@@ -464,6 +471,8 @@ class GeoJSONVectorPainter extends CustomPainter with ChangeNotifier {
 
           path.addPolygon(offsets,false);
         }
+
+        paint.strokeWidth = paint.strokeWidth / pos.scale;
 
         canvas.drawPath(path, paint);
       }
