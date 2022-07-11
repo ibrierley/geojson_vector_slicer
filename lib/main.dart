@@ -72,8 +72,11 @@ class _MyHomePageState extends State<MyHomePage> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
 
+      var geoPointMap = TestData().getSamplePointGeoJSON(100);
+      geoJsonIndex = await geoJSON.createIndex(null, tileSize: tileSize, geoJsonMap: geoPointMap);
+
       //geoJsonIndex = await geoJSON.createIndex('assets/US_County_Boundaries.json', tileSize: tileSize);
-      geoJsonIndex = await geoJSON.createIndex('assets/polygon_hole.json', tileSize: 256);
+      //geoJsonIndex = await geoJSON.createIndex('assets/polygon_hole.json', tileSize: 256);
       //geoJsonIndex = await geoJSON.createIndex('assets/general.json', tileSize: 256);
       //geoJsonIndex = await geoJSON.createIndex('assets/uk.json', tileSize: 256);
       //geoJsonIndex = await geoJSON.createIndex('assets/earthquake.geojson', tileSize: 256);
@@ -151,7 +154,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
                    */
 
-    urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+                    urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
                     subdomains: ['a', 'b', 'c']),
               ),
 
@@ -170,15 +173,15 @@ class _MyHomePageState extends State<MyHomePage> {
                       }
                       return paint;
                     },
-                    pointWidgetFunc: (TileFeature feature) {
-                      return const Text("Point!", style: TextStyle(fontSize: 10));
-                    },
-                    pointStyle: (TileFeature feature) { return Paint(); },
-                    //pointFunc: (TileFeature feature, Canvas canvas) {
-                    //  if(CustomImages.imageLoaded) {
-                    //    canvas.drawImage(CustomImages.plane, const Offset(0.0, 0.0), Paint());
-                    //  }
+                    //pointWidgetFunc: (TileFeature feature) {
+                    //  return const Text("Point!", style: TextStyle(fontSize: 10));
                     //},
+                    pointStyle: (TileFeature feature) { return Paint(); },
+                    pointFunc: (TileFeature feature, Canvas canvas) {
+                      if(CustomImages.imageLoaded) {
+                        canvas.drawImage(CustomImages.plane, const Offset(0.0, 0.0), Paint());
+                      }
+                    },
                     lineStringFunc: () { if(CustomImages.imageLoaded) return CustomImages.plane;},
                     polygonFunc: null,
                     polygonStyle: (feature) {
@@ -222,8 +225,15 @@ class CustomImages {
 }
 
 class GeoJSON {
-  Future<GeoJSONVT> createIndex(String jsonString, { GeoJSONVTOptions? options, num tileSize = 256 }) async  {
-    var json = jsonDecode(await rootBundle.loadString(jsonString));
+  Future<GeoJSONVT> createIndex(String? jsonString, { GeoJSONVTOptions? options, num tileSize = 256, geoJsonMap }) async  {
+    Map geoMap;
+    if(geoJsonMap != null) {
+      geoMap = geoJsonMap;
+    } else {
+      geoMap = jsonDecode(await rootBundle.loadString(jsonString!));
+    }
+
+    //var json = jsonDecode(await rootBundle.loadString(jsonString));
 
     options ??= GeoJSONVTOptions(
           debug : 0,
@@ -234,7 +244,7 @@ class GeoJSON {
           tolerance : 0, // 1 is probably ok, 2+ may be odd if you have adjacent polys lined up and gets simplified
           extent: tileSize.toInt());
     
-    GeoJSONVT geoJsonIndex = GeoJSONVT(json, options);
+    GeoJSONVT geoJsonIndex = GeoJSONVT(geoMap, options);
 
     return geoJsonIndex;
   }
@@ -305,7 +315,7 @@ class GeoJSON {
               var bbY = ((bMax[1] - bMin[1]) / 2 + bMin[1]);
 
 
-              if(count > 0) {
+              if(count > 1) {
                 var tp = MatrixUtils.transformPoint(matrix,
                     Offset((clusterTileX * clusterPixels + bbX / clusterFactor).toDouble(), (clusterTileY * clusterPixels + bbY / clusterFactor).toDouble()));
 
@@ -680,4 +690,32 @@ class HexColor extends Color {
   }
 
   HexColor(final String hexColor) : super(_getColorFromHex(hexColor));
+}
+
+class TestData {
+  final _random = Random();
+  //int next(int min, int max) => min + _random.nextInt(max - min);
+  double doubleInRange(num start, num end) =>
+      _random.nextDouble() * (end - start) + start;
+
+  Map getSamplePointGeoJSON(count) {
+    var latGeo = {"type": "FeatureCollection", "features": []};
+
+    List features = latGeo['features'] as List;
+
+    for (var c = 0; c < count; c++) {
+      //var feature = {"type": "feature", "properties": {}, "geometry": {"type": "point", "coordinates": [doubleInRange(-90,90),doubleInRange(-180,180) ]}};
+      var feature = {
+        "type": "Feature",
+        "properties": {'val': doubleInRange(0, 20)},
+        "geometry": {
+          "type": "Point",
+          "coordinates": [doubleInRange(-180, 180), doubleInRange(-90, 90)]
+        }
+      };
+      features.add(feature);
+    }
+    return latGeo;
+  }
+
 }
