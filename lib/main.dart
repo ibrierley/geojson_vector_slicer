@@ -72,9 +72,10 @@ class _MyHomePageState extends State<MyHomePage> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
 
-      geoJsonIndex = await geoJSON.createIndex('assets/US_County_Boundaries.json', tileSize: tileSize);
-      //geoJsonIndex = await geoJSON.createIndex('assets/polygon_hole.json', tileSize: 256);
+      //geoJsonIndex = await geoJSON.createIndex('assets/US_County_Boundaries.json', tileSize: tileSize);
+      geoJsonIndex = await geoJSON.createIndex('assets/polygon_hole.json', tileSize: 256);
       //geoJsonIndex = await geoJSON.createIndex('assets/general.json', tileSize: 256);
+      //geoJsonIndex = await geoJSON.createIndex('assets/uk.json', tileSize: 256);
       //geoJsonIndex = await geoJSON.createIndex('assets/earthquake.geojson', tileSize: 256);
       setState(() {
       });
@@ -139,7 +140,18 @@ class _MyHomePageState extends State<MyHomePage> {
             children: <Widget>[
               TileLayerWidget(
                 options: TileLayerOptions(
-                    urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        //'https://maps.dabbles.info/index.php?x={x}&y={y}&z={z}&r=osm',
+        //FqtZvgMGhQB-2AqzcvlpYznhg38kCt-bBx1OtvU7wLE
+        //urlTemplate: "https://atlas.microsoft.com/map/tile/png?api-version=1&layer=basic&style=main&tileSize=256&view=Auto&zoom={z}&x={x}&y={y}&subscription-key=FqtZvgMGhQB-2AqzcvlpYznhg38kCt-bBx1OtvU7wLE",
+    /*TileLayerOptions(
+                    urlTemplate: "https://atlas.microsoft.com/map/tile/png?api-version=1&layer=basic&style=main&tileSize=256&view=Auto&zoom={z}&x={x}&y={y}&subscription-key={subscriptionKey}",
+                    additionalOptions: {
+                      'subscriptionKey': 'FqtZvgMGhQB-2AqzcvlpYznhg38kCt-bBx1OtvU7wLE'
+                    },
+
+                   */
+
+    urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
                     subdomains: ['a', 'b', 'c']),
               ),
 
@@ -261,15 +273,15 @@ class GeoJSON {
   }
 
   // experimental, not sure this still works. rework to use with canvas, not widgets ???
-  Widget drawClusters(MapState mapState, index, stream, markerFunc) {
+  Widget getClusters(MapState mapState, index, stream, markerFunc, CustomPoint size) {
 
     List<Positioned> markers = [];
 
     var clusterZoom = 1;
     var clusterFactor = pow(2,clusterZoom);
 
-    var tileState = TileState(mapState, const CustomPoint(256.0, 256.0));
-    var clusterPixels = 256 / clusterFactor; /// how much do we want to split the tilesize into, 32 = 8 chunks by 8
+    var tileState = TileState(mapState, size);
+    var clusterPixels = size.x / clusterFactor; /// how much do we want to split the tilesize into, 32 = 8 chunks by 8
 
     if(index != null) {
 
@@ -286,8 +298,8 @@ class GeoJSON {
 
               var count = innerTileFeatures.features.length;
 
-              var bMin = transformPoint(innerTileFeatures.minX,innerTileFeatures.minY,256,1 << tileState.getTileZoom().toInt() + clusterZoom,innerTileFeatures.x,innerTileFeatures.y);
-              var bMax = transformPoint(innerTileFeatures.maxX,innerTileFeatures.maxY,256,1 << tileState.getTileZoom().toInt() + clusterZoom,innerTileFeatures.x,innerTileFeatures.y);
+              var bMin = transformPoint(innerTileFeatures.minX,innerTileFeatures.minY,size.x,1 << tileState.getTileZoom().toInt() + clusterZoom,innerTileFeatures.x,innerTileFeatures.y);
+              var bMax = transformPoint(innerTileFeatures.maxX,innerTileFeatures.maxY,size.x,1 << tileState.getTileZoom().toInt() + clusterZoom,innerTileFeatures.x,innerTileFeatures.y);
 
               var bbX = ((bMax[0] - bMin[0]) / 2 + bMin[0]);
               var bbY = ((bMax[1] - bMin[1]) / 2 + bMin[1]);
@@ -299,8 +311,8 @@ class GeoJSON {
 
                 markers.add(
                     Positioned(
-                        width: 40,
-                        height: 40,
+                        width: 35,
+                        height: 35,
                         left: tp.dx, // + zoomTileX*32,
                         top: tp.dy, // +zoomTileY*32,
                         child: Transform.rotate(
@@ -308,7 +320,23 @@ class GeoJSON {
                           angle: -mapState.rotationRad,
                           child: markerFunc == null ? FittedBox(
                               fit: BoxFit.contain,
-                              child: Text("$count, ", style: const TextStyle(fontSize: 10))
+                              //child: Text("$count ", style: const TextStyle(fontSize: 10))
+                              child: Container(
+                                width: 100,
+                                height: 100,
+                                decoration: BoxDecoration(
+                                  border: Border.all(width: 2),
+                                  shape: BoxShape.circle,
+                                  color: Colors.amber,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: <Widget>[
+                                    Text("$count ", style: const TextStyle(fontSize: 50)),
+                                  ],
+                                ),
+                              )
                           ) :  markerFunc( innerTileFeatures, count ),
                         )
                     )
@@ -349,10 +377,13 @@ class _GeoJSONWidgetState extends State<GeoJSONWidget> {
     Map<String,Widget> lastTileWidgets = {};
     Map<String,Widget> currentTileWidgets = {};
 
+    CustomPoint size = const CustomPoint(256,256);
 
     return StreamBuilder<void>(
         stream: mapState.onMoved,
         builder: (BuildContext context, _) {
+
+          var clusters = GeoJSON().getClusters(mapState, widget.index, null, null, size);
 
           TileState tileState = TileState(mapState, const CustomPoint(256.0, 256.0));
 
@@ -434,7 +465,8 @@ class _GeoJSONWidgetState extends State<GeoJSONWidget> {
 
           return Stack(children: [
             Stack(children: allTileStack),
-            Stack(children: allTileUpperStack)
+            Stack(children: allTileUpperStack),
+            clusters
           ]);
         }
     );
@@ -469,21 +501,7 @@ class FeatureVectorPainter extends CustomPainter with ChangeNotifier {
   Paint? singleStyle;
 
   FeatureVectorPainter({ required this.mapState, required this.features, this.stream, required this.options, required this.matrix, required this.pos  });
-
-
-  Paint getDefaultStyle(int type) {
-    Paint paint = Paint()
-      ..style = PaintingStyle.fill
-      ..color = Colors.green
-      ..strokeWidth = 0.9
-      ..strokeCap = StrokeCap.round
-      ..isAntiAlias = false;
-
-    if( type == 2) {
-      paint.style = PaintingStyle.stroke;
-    }
-    return paint;
-  }
+  
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -500,20 +518,11 @@ class FeatureVectorPainter extends CustomPainter with ChangeNotifier {
 
       var feature = features[count];
       var type = feature.type;
+      var tags = feature.tags;
+      var hasJsonStyle;
+      //print("${feature.tags}");
 
-      Paint featurePaint;
-
-      if (type == 1 && options.pointStyle != null) {
-        featurePaint = options.pointStyle!(feature);
-      } else if (type == 2 && options.lineStringStyle != null) {
-        featurePaint = options.lineStringStyle!(feature);
-      } else if (type == 3 && options.polygonStyle != null) {
-        featurePaint = options.polygonStyle!(feature);
-      } else if (options.overallStyleFunc != null) {
-        featurePaint = options.overallStyleFunc!(feature);
-      } else {
-        featurePaint = getDefaultStyle(type);
-      }
+      Paint featurePaint = Styles.getPaint(feature, null, options);
 
       if (type == 1) { // point
         canvas.save();
@@ -569,5 +578,106 @@ class FeatureVectorPainter extends CustomPainter with ChangeNotifier {
 
 }
 
+// https://github.com/flutter/flutter/blob/0f397c08dc99c720bea06ff925106d9858547ee3/packages/flutter/lib/src/material/colors.dart
+class Styles {
 
+  static Map<String, Color> colorNames = {
+    'red': Colors.red,
+    'blue': Colors.blue,
+    'yellow': Colors.yellow,
+    'green': Colors.green,
+    'amber': Colors.amber,
+    'orange': Colors.orange,
+    'brown': Colors.brown,
+    'grey': Colors.grey,
+    'bluegrey': Colors.blueGrey,
+    'pink': Colors.pink,
+    'purple': Colors.purple,
+    'indigo': Colors.indigo,
+    'lightblue': Colors.lightBlue,
+    'cyan': Colors.cyan,
+    'teal': Colors.teal,
+    'lime': Colors.lime,
+  };
 
+  static Paint getDefaultStyle(int type) {
+    Paint paint = Paint()
+      ..style = PaintingStyle.fill
+      ..color = Colors.green
+      ..strokeWidth = 0.9
+      ..strokeCap = StrokeCap.round
+      ..isAntiAlias = false;
+
+    if( type == 2) {
+      paint.style = PaintingStyle.stroke;
+    }
+    return paint;
+  }
+
+  static dartui.Paint getPaint(feature, featurePaint, options) {
+
+    Map<String, dynamic> tags = feature.tags;
+    int type = feature.type;
+
+    featurePaint ??= getDefaultStyle(0);
+
+    Map styleTags;
+    if(tags.containsKey('style')) {
+      styleTags = tags['style'];
+      print("got a style $styleTags");
+    } else {
+      styleTags = tags;
+    }
+
+    if(styleTags.containsKey('fill') && type == 3) {
+      var fill = styleTags['fill'];
+      if(colorNames.containsKey(fill)) {
+        featurePaint.color = colorNames[fill]!;
+      } else {
+        featurePaint.color = HexColor(fill);
+      }
+    }
+    if(styleTags.containsKey('stroke') && type == 2) {
+      var stroke = styleTags['stroke'];
+      if(colorNames.containsKey(stroke)) {
+        featurePaint.color = colorNames[stroke]!;
+      } else {
+        featurePaint.color = HexColor(stroke);
+      }
+    }
+    if(styleTags.containsKey('marker-color') && type == 1) {
+      var markerColor = styleTags['marker-color'];
+      if(colorNames.containsKey(markerColor)) {
+        featurePaint.color = colorNames[markerColor]!;
+      } else {
+        featurePaint.color = HexColor(markerColor);
+      }
+    }
+
+    if(styleTags.containsKey('stroke-width') && type == 2) {
+      featurePaint.strokeWidth = feature.tags['stroke-width'];
+    }
+    if(styleTags.containsKey('stroke-opacity') && type == 2) {
+      featurePaint.color = featurePaint.color.withOpacity(feature.tags['stroke-opacity']);
+    }
+    if(styleTags.containsKey('fill-opacity') && type == 3) {
+      featurePaint.color = featurePaint.color.withOpacity(feature.tags['fill-opacity']);
+    }
+
+    return featurePaint;
+
+  }
+
+}
+
+class HexColor extends Color {
+  static int _getColorFromHex(String hexColor) {
+    hexColor = hexColor.toUpperCase().replaceAll("#", "");
+    if (hexColor.length == 6) {
+      hexColor = "FF" + hexColor;
+    }
+    return int.parse(hexColor, radix: 16);
+  }
+
+  HexColor(final String hexColor) : super(_getColorFromHex(hexColor));
+}

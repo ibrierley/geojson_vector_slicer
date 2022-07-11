@@ -19,7 +19,12 @@
       },
       "properties": {
         "prop0": "value0",
-        "prop1": {"this": "that"}
+        "prop1": {"this": "that"},
+        "style":{
+          "fill":"red",
+          "stroke-width":"3",
+          "fill-opacity":0.6
+        }
       }
     },
     { "type": "Feature",
