@@ -173,15 +173,17 @@ class _MyHomePageState extends State<MyHomePage> {
                       }
                       return paint;
                     },
-                    //pointWidgetFunc: (TileFeature feature) {
-                    //  return const Text("Point!", style: TextStyle(fontSize: 10));
-                    //},
+                    pointWidgetFunc: (TileFeature feature) {
+                      //return const Text("Point!", style: TextStyle(fontSize: 10));
+                      return const Icon(Icons.airplanemode_on);
+                    },
                     pointStyle: (TileFeature feature) { return Paint(); },
                     pointFunc: (TileFeature feature, Canvas canvas) {
                       if(CustomImages.imageLoaded) {
                         canvas.drawImage(CustomImages.plane, const Offset(0.0, 0.0), Paint());
                       }
                     },
+                    ///clusterFunc: () { return Text("Cluster"); },
                     lineStringFunc: () { if(CustomImages.imageLoaded) return CustomImages.plane;},
                     polygonFunc: null,
                     polygonStyle: (feature) {
@@ -361,6 +363,83 @@ class GeoJSON {
     return Stack(children: markers);
   }
 
+  Widget getClustersOnTile(tile, index, matrix, MapState mapState, size, clusterFunc, markerWidgetFunc) {
+
+    List<Positioned> markers = [];
+
+    var clusterZoom = 1;
+    var clusterFactor = pow(2,clusterZoom);
+
+    var tileState = TileState(mapState, size);
+    var clusterPixels = size.x / clusterFactor; /// how much do we want to split the tilesize into, 32 = 8 chunks by 8
+
+    if(index != null) {
+
+      //tileState.loopOverTiles( (i,j, pos, matrix) {
+
+        for( var clusterTileX = 0; clusterTileX < clusterFactor ; clusterTileX++) {
+
+          for( var clusterTileY = 0; clusterTileY < clusterFactor ; clusterTileY++) {
+
+            var innerTileFeatures = index.getTile(
+                tileState.getTileZoom().toInt() + clusterZoom, tile.x * clusterFactor + clusterTileX, tile.y * clusterFactor + clusterTileY);
+
+            if(innerTileFeatures != null && innerTileFeatures.features.length > 0) {
+
+              var count = innerTileFeatures.features.length;
+
+              var bMin = transformPoint(innerTileFeatures.minX,innerTileFeatures.minY,size.x,1 << tileState.getTileZoom().toInt() + clusterZoom,innerTileFeatures.x,innerTileFeatures.y);
+              var bMax = transformPoint(innerTileFeatures.maxX,innerTileFeatures.maxY,size.x,1 << tileState.getTileZoom().toInt() + clusterZoom,innerTileFeatures.x,innerTileFeatures.y);
+
+              var bbX = ((bMax[0] - bMin[0]) / 2 + bMin[0]);
+              var bbY = ((bMax[1] - bMin[1]) / 2 + bMin[1]);
+
+
+              var tp = MatrixUtils.transformPoint(matrix,
+                  Offset((clusterTileX * clusterPixels + bbX / clusterFactor).toDouble(), (clusterTileY * clusterPixels + bbY / clusterFactor).toDouble()));
+
+              markers.add(
+                  Positioned(
+                      width: 35,
+                      height: 35,
+                      left: tp.dx, // + zoomTileX*32,
+                      top: tp.dy, // +zoomTileY*32,
+                      child: Transform.rotate(
+                        alignment: FractionalOffset.center,
+                        angle: -mapState.rotationRad,
+                        child: count == 1 ? markerWidgetFunc(innerTileFeatures.features[0]) :
+                          clusterFunc == null ? FittedBox(
+                              fit: BoxFit.contain,
+                              //child: Text("$count ", style: const TextStyle(fontSize: 10))
+                              child: Container(
+                                width: 100,
+                                height: 100,
+                                decoration: BoxDecoration(
+                                  border: Border.all(width: 2),
+                                  shape: BoxShape.circle,
+                                  color: Colors.amber,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: <Widget>[
+                                    Text("$count ", style: const TextStyle(fontSize: 50)),
+                                  ],
+                                ),
+                              )
+                          ) :  clusterFunc(),
+                      )
+                  )
+              );
+            }
+          }
+        }
+      //});
+    }
+
+    return Stack(children: markers);
+  }
+
 }
 
 class GeoJSONWidget extends StatefulWidget {
@@ -393,7 +472,8 @@ class _GeoJSONWidgetState extends State<GeoJSONWidget> {
         stream: mapState.onMoved,
         builder: (BuildContext context, _) {
 
-          var clusters = GeoJSON().getClusters(mapState, widget.index, null, null, size);
+          //var clusters = GeoJSON().getClusters(mapState, widget.index, null, null, size);
+          List<Widget> clusters = [];
 
           TileState tileState = TileState(mapState, const CustomPoint(256.0, 256.0));
 
@@ -410,9 +490,14 @@ class _GeoJSONWidgetState extends State<GeoJSONWidget> {
 
             if (tile != null) {
 
+              var tileClusters = GeoJSON().getClustersOnTile(tile, widget.index, matrix, mapState, size,
+                  widget.options.clusterFunc, widget.options.pointWidgetFunc);
+              clusters.add(tileClusters);
+
               int startRange = 0;
               int endRange = 0;
               for (int c = 0; c < tile.features.length; c++) {
+
 
                 var feature = tile.features[c];
                 var type = feature.type;
@@ -474,9 +559,9 @@ class _GeoJSONWidgetState extends State<GeoJSONWidget> {
           lastTileWidgets = currentTileWidgets;
 
           return Stack(children: [
-            Stack(children: allTileStack),
-            Stack(children: allTileUpperStack),
-            clusters
+            ///Stack(children: allTileStack),
+            ///Stack(children: allTileUpperStack),
+            Stack(children: clusters),
           ]);
         }
     );
@@ -492,11 +577,12 @@ class GeoJSONOptions {
     Function? pointWidgetFunc;
     Function? pointStyle;
     Function? overallStyleFunc;
+    Function? clusterFunc;
     bool featuresHaveSameStyle;
 
     GeoJSONOptions({this.lineStringFunc, this.lineStringStyle, this.polygonFunc,
       this.polygonStyle, this.pointFunc, this.pointWidgetFunc, this.pointStyle,
-      this.overallStyleFunc, this.featuresHaveSameStyle = false});
+      this.overallStyleFunc, this.clusterFunc, this.featuresHaveSameStyle = false});
 
 }
 
