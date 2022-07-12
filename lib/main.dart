@@ -289,7 +289,7 @@ class GeoJSON {
 
     List<Positioned> markers = [];
 
-    var clusterZoom = 1;
+    var clusterZoom = 2;
     var clusterFactor = pow(2,clusterZoom);
 
     var tileState = TileState(mapState, size);
