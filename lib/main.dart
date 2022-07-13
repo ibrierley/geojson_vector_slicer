@@ -1,8 +1,8 @@
-import 'package:flutter/cupertino.dart';
+//import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
+//import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import 'package:tile_state/tile_state.dart';
+import 'package:tile_state/tile_state.dart' hide Coords;
 import 'package:geojson_vt_dart/index.dart';
 import 'package:geojson_vt_dart/transform.dart';
 import 'package:geojson_vt_dart/classes.dart';
@@ -14,9 +14,9 @@ import 'package:flutter/services.dart' show rootBundle;
 
 import 'dart:async';
 import 'dart:typed_data';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:tuple/tuple.dart';
-
-
+//import 'package:flutter_map/src/layer/tile_layer/coords.dart';
 
 void main() {
   runApp(const MyApp());
@@ -72,10 +72,10 @@ class _MyHomePageState extends State<MyHomePage> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
 
-      var geoPointMap = TestData().getSamplePointGeoJSON(100);
-      geoJsonIndex = await geoJSON.createIndex(null, tileSize: tileSize, geoJsonMap: geoPointMap);
+      //var geoPointMap = TestData().getSamplePointGeoJSON(100);
+      //geoJsonIndex = await geoJSON.createIndex(null, tileSize: tileSize, geoJsonMap: geoPointMap);
 
-      //geoJsonIndex = await geoJSON.createIndex('assets/US_County_Boundaries.json', tileSize: tileSize);
+      geoJsonIndex = await geoJSON.createIndex('assets/US_County_Boundaries.json', tileSize: tileSize);
       //geoJsonIndex = await geoJSON.createIndex('assets/polygon_hole.json', tileSize: 256);
       //geoJsonIndex = await geoJSON.createIndex('assets/general.json', tileSize: 256);
       //geoJsonIndex = await geoJSON.createIndex('assets/uk.json', tileSize: 256);
@@ -157,6 +157,7 @@ class _MyHomePageState extends State<MyHomePage> {
                     urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
                     subdomains: ['a', 'b', 'c']),
               ),
+                const VectorTileWidget(size: 256.0),
 
                 GeoJSONWidget(
                   index: geoJsonIndex,
@@ -559,8 +560,8 @@ class _GeoJSONWidgetState extends State<GeoJSONWidget> {
           lastTileWidgets = currentTileWidgets;
 
           return Stack(children: [
-            ///Stack(children: allTileStack),
-            ///Stack(children: allTileUpperStack),
+            Stack(children: allTileStack),
+            Stack(children: allTileUpperStack),
             Stack(children: clusters),
           ]);
         }
@@ -636,12 +637,13 @@ class FeatureVectorPainter extends CustomPainter with ChangeNotifier {
       if(type == 2 || type == 3) { // line = 2, poly = 3
 
 
-        var path = dartui.Path();
-        for( var item in feature.geometry ) {
+        var path = dartui.Path()
+                    ..fillType = dartui.PathFillType.evenOdd;;
+        for( var ring in feature.geometry ) {
 
           List<Offset> offsets = [];
-          for (var c = 0; c < item.length; c++) {
-            offsets.add(Offset(item[c][0].toDouble(), item[c][1].toDouble()));
+          for (var c = 0; c < ring.length; c++) {
+            offsets.add(Offset(ring[c][0].toDouble(), ring[c][1].toDouble()));
           }
           path.addPolygon(offsets,false);
         }
@@ -802,6 +804,74 @@ class TestData {
       features.add(feature);
     }
     return latGeo;
+  }
+
+}
+
+class VectorTileWidget extends StatefulWidget {
+  final double size = 256.0;
+
+  const VectorTileWidget({Key? key, size = 256.0}) : super(key: key);
+
+  @override
+  State<StatefulWidget> createState() {
+    return _VectorTileWidgetState();
+  }
+}
+
+class _VectorTileWidgetState extends State<VectorTileWidget> {
+
+  @override
+  Widget build(BuildContext context) {
+
+    var width = MediaQuery.of(context).size.width * 2.0;
+    var height = MediaQuery.of(context).size.height;
+    var dimensions = Offset(width,height);
+
+    var mapState = MapState.maybeOf(context)!;
+
+    var tileState = TileState(mapState, CustomPoint(widget.size, widget.size));
+
+    var count = 0;
+    tileState.loopOverTiles((i, j, pos2, matrix) {
+      if(count < 1) {
+        print("IJ $i,$j,$matrix");
+        Coords coords = Coords(i.toDouble(), j.toDouble());
+        coords.z = mapState.zoom.toInt();
+        ///fetchData(coords); /// /////////////////////////////////////
+        count++;
+      }
+
+    });
+
+    var box = SizedBox(
+        width: width*1.25, /// calculate this properly depending on rotation and mobile orientation
+        height: height*1.25,
+        child: Text("Vector Tile")
+    );
+
+    return box;
+  }
+
+  void fetchData(coords) async {
+    String url = NetworkNoRetryTileProvider().getTileUrl(coords,
+      TileLayerOptions( urlTemplate: 'https://api.mapbox.com/v4/mapbox.mapbox-streets-v8/{z}/{x}/{y}.mvt?mapbox://styles/gibble/ckoe1dv003l7s17pb219opzj0&access_token=pk.eyJ1IjoiZ2liYmxlIiwiYSI6ImNqbjBlZDB6ejFrODcza3Fsa3o3eXR1MzkifQ.pC89zLnuSWrRdCkDrsmynQ',
+                        subdomains: ['a', 'b', 'c']),
+      );
+
+
+    print("url is $url");
+    DefaultCacheManager().getSingleFile(url).then( ( value ) async {
+      print("$value");
+
+      var bytes = value.readAsBytesSync();
+
+      //late vector_tile.Tile vt;
+
+      //if(units != null)
+      //  vt = vector_tile.Tile.fromBuffer(units);
+    });
+
   }
 
 }
