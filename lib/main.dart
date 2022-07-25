@@ -1,4 +1,5 @@
 //import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:geojson_vt_dart/bak/tile.dart';
 //import 'package:flutter_map/flutter_map.dart';
@@ -100,7 +101,9 @@ class _MyHomePageState extends State<MyHomePage> {
           FlutterMap(
             mapController: mapController,
             options: MapOptions(
+              allowPanningOnScrollingParent: false,
               onTap: (tapPosition, point) {
+
                 var pt = const Epsg3857().latLngToPoint(point, 14);
 
                 var x = (pt.x / tileSize).floor();
@@ -124,9 +127,10 @@ class _MyHomePageState extends State<MyHomePage> {
                 }
                 setState(() {});
                 },
-              center: LatLng(-2.219988165689301, 56.870017401753529),
-              zoom: 2.2,
-              maxZoom: 15.0,
+             /// center: LatLng(-2.219988165689301, 56.870017401753529),
+              center: LatLng(50.8344903, -0.186486 ),
+              zoom: 16.6,
+              maxZoom: 17.0,
               minZoom: 0.0,
               //interactiveFlags: InteractiveFlag.all & ~InteractiveFlag.rotate
             ),
@@ -145,7 +149,9 @@ class _MyHomePageState extends State<MyHomePage> {
               ],
 
             children: <Widget>[
+
               TileLayerWidget(
+
                 options: TileLayerOptions(
         //'https://maps.dabbles.info/index.php?x={x}&y={y}&z={z}&r=osm',
         //FqtZvgMGhQB-2AqzcvlpYznhg38kCt-bBx1OtvU7wLE
@@ -161,8 +167,11 @@ class _MyHomePageState extends State<MyHomePage> {
                     urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
                     subdomains: ['a', 'b', 'c']),
               ),
-                VectorTileWidget(size: 256.0, index: vectorTileIndex),
 
+
+                VectorTileWidgetStream(size: 256.0, index: vectorTileIndex),
+
+                /*
                 GeoJSONWidget(
                   index: geoJsonIndex,
                   options: GeoJSONOptions(
@@ -206,6 +215,10 @@ class _MyHomePageState extends State<MyHomePage> {
                     }
                   ),
                 ),
+
+
+                 */
+
             ]),
     ]);
   }
@@ -556,8 +569,8 @@ class _GeoJSONWidgetState extends State<GeoJSONWidget> {
             // ideally for optimisation we'd put the RepaintBoundary on the newWidget
             // but this will cause hairlines between tiles sometimes.
             if(thisTileStack.isNotEmpty) {
-              allTileStack.add(
-                RepaintBoundary(child: Transform(child: newWidget, transform: matrix))
+              allTileStack.add( Transform(child: newWidget, transform: matrix)
+                ///RepaintBoundary(child: Transform(child: newWidget, transform: matrix))
               );
             }
           });
@@ -676,7 +689,9 @@ class FeatureVectorPainter extends CustomPainter with ChangeNotifier {
   }
 
   @override
-  bool shouldRepaint(FeatureVectorPainter oldDelegate) => oldDelegate.features != features ;
+  bool shouldRepaint(FeatureVectorPainter oldDelegate) => oldDelegate.features != features ||
+      oldDelegate.mapState.zoom != mapState.zoom ||
+      oldDelegate.mapState.center.latitude != mapState.center.latitude ;
 
 }
 
@@ -721,8 +736,7 @@ class Styles {
     Map<dynamic, dynamic> tags = feature.tags;
     FeatureType type;
     if(feature.type is int) {
-      type = FeatureType.values[feature
-          .type]; // convert geojson-vt int into enum
+      type = FeatureType.values[feature.type]; // convert geojson-vt int into enum
     } else {
       type = feature.type;
     }
@@ -733,7 +747,6 @@ class Styles {
     Map styleTags;
     if(tags.containsKey('style')) {
       styleTags = tags['style'];
-      print("got a style $styleTags");
     } else {
       styleTags = tags;
     }
@@ -819,11 +832,30 @@ class TestData {
 
 }
 
+class VectorTileWidgetStream extends StatelessWidget {
+  final double size = 256.0;
+  final VectorTileIndex? index;
+
+  const VectorTileWidgetStream({Key? key, size = 256.0, this.index}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+
+    var mapState = MapState.maybeOf(context)!;
+    return StreamBuilder(
+      stream: mapState.onMoved,
+      builder: (context, AsyncSnapshot snapshot) {
+          return VectorTileWidget(size: 256.0, index: index);
+      }
+    );
+  }
+}
+
 class VectorTileWidget extends StatefulWidget {
   final double size = 256.0;
   final VectorTileIndex? index;
 
-  VectorTileWidget({Key? key, size = 256.0, this.index}) : super(key: key);
+  const VectorTileWidget({Key? key, size = 256.0, this.index}) : super(key: key);
 
   @override
   State<StatefulWidget> createState() {
@@ -836,8 +868,16 @@ enum VectorTileProcessingStatus {
   isLoading,
   isLoaded,
 }
-class VectorTileStatus {
+
+class VectorLayer {
+  String layerName = "";
   List<ProcessedFeature> features = [];
+
+  VectorLayer(this.layerName,this.features);
+}
+
+class VectorTileStatus {
+  List<VectorLayer> layers = [];
   VectorTileProcessingStatus status = VectorTileProcessingStatus.notStarted;
 
   VectorTileStatus();
@@ -863,7 +903,6 @@ class _VectorTileWidgetState extends State<VectorTileWidget> {
   @override
   void initState() {
     index = widget.index;
-    // TODO: implement initState
     super.initState();
   }
 
@@ -884,9 +923,9 @@ class _VectorTileWidgetState extends State<VectorTileWidget> {
     var count = 0;
     tileState.loopOverTiles((i, j, pos, matrix) {
       if(true || count < 1) {
-        print("IJ $i,$j,$matrix");
+
         Coords coords = Coords(i.toDouble(), j.toDouble());
-        coords.z = mapState.zoom.toInt();
+        coords.z = mapState.zoom.round();
         var tileKey = "${coords.x}:${coords.y}:${coords.z}";
 
         if( !vectorTileIndex!.tile.containsKey(tileKey) ) {
@@ -896,20 +935,7 @@ class _VectorTileWidgetState extends State<VectorTileWidget> {
         var vectorTileStatus = vectorTileIndex.tile[tileKey];
 
         if( vectorTileStatus!.status == VectorTileProcessingStatus.isLoaded ) {
-          var processedFeatures = vectorTileStatus.features;
-
-          if (processedFeatures != null) {
-            print("ADDING TO STACK PROCESSED $pos");
-
-            //var npos = MatrixUtils.transformPoint(matrix, Offset(pos.point.x, pos.point.y));
-            var width = 256.0 * pos.scale;
-            var height = 256.0 * pos.scale;
-            //var point = MatrixUtils.transformPoint(matrix, Offset(pos.point.x, pos.point.y));
-            //var point = pos.point.multiplyBy()
-
-            //var tp = MatrixUtils.transformPoint(matrix, const Offset(0,0));
-
-            //print("scale is ${pos.scale}");
+          var processedLayers = vectorTileStatus.layers;
 
 
             stack.add(
@@ -919,226 +945,271 @@ class _VectorTileWidgetState extends State<VectorTileWidget> {
                         isComplex: true,
                         //Tells flutter to cache the painter, although it probably won't!
                         painter: FeatureVectorTilePainter(
-                            features: processedFeatures,
+                            layers: processedLayers,
                             options: GeoJSONOptions(),
-                            pos: pos)
+                            pos: pos,
+                          mapState: mapState
+                        )
                     )
                 )
             );
-          }
+
         } else if( vectorTileStatus.status == VectorTileProcessingStatus.notStarted ) {
           vectorTileStatus.status = VectorTileProcessingStatus.isLoading;
 
-          fetchData(coords, vectorTileIndex).then((_) {
+          fetchData(coords, vectorTileIndex, mapState).then((_) {
             vectorTileStatus.status = VectorTileProcessingStatus.isLoaded;
           });
         }
-       /// /////////////////////////////////////
         count++;
       }
 
     });
 
-    var box = SizedBox(
+    return SizedBox(
         width: width*1.25, /// calculate this properly depending on rotation and mobile orientation
         height: height*1.25,
         child: Stack(children: stack)
     );
 
-    return box;
   }
 
-  Future<void> fetchData(coords, VectorTileIndex? vectorTileIndex) async {
-
-    print("fetch index is ");
+  Future<void> fetchData(coords, VectorTileIndex? vectorTileIndex, MapState mapState) async {
 
     String tileCoordsKey = tileCoordsToKey(coords);
+    String url;
 
-    String url = NetworkNoRetryTileProvider().getTileUrl(coords,
-      TileLayerOptions( urlTemplate: 'https://api.mapbox.com/v4/mapbox.mapbox-streets-v8/{z}/{x}/{y}.mvt?mapbox://styles/gibble/ckoe1dv003l7s17pb219opzj0&access_token=pk.eyJ1IjoiZ2liYmxlIiwiYSI6ImNqbjBlZDB6ejFrODcza3Fsa3o3eXR1MzkifQ.pC89zLnuSWrRdCkDrsmynQ',
-                        subdomains: ['a', 'b', 'c']),
-    );
+    if(isValidTile(coords, mapState)) {
+      try {
+        url = NetworkNoRetryTileProvider().getTileUrl(coords,
+          TileLayerOptions(
+              urlTemplate: 'https://api.mapbox.com/v4/mapbox.mapbox-streets-v8/{z}/{x}/{y}.mvt?mapbox://styles/gibble/ckoe1dv003l7s17pb219opzj0&access_token=pk.eyJ1IjoiZ2liYmxlIiwiYSI6ImNqbjBlZDB6ejFrODcza3Fsa3o3eXR1MzkifQ.pC89zLnuSWrRdCkDrsmynQ',
+              subdomains: ['a', 'b', 'c']),
+        );
 
-    print("url is $url");
-    DefaultCacheManager().getSingleFile(url).then( ( value ) async {
-      ///print("$value");
+        DefaultCacheManager().getSingleFile(url).then( ( value ) async {
 
-      var bytes = value.readAsBytesSync();
+          var bytes = value.readAsBytesSync();
+          var vt = vector_tile.Tile.fromBuffer(bytes);
 
-      var vt = vector_tile.Tile.fromBuffer(bytes);
+          List<ProcessedFeature> tileFeatureList = [];
 
-      List<ProcessedFeature> tileFeatureList = [];
+          int reps = 0;
 
-      int reps = 0;
+          Map stats = {};
 
-      for(var layer in vt.layers) {
-        var layerString = layer.name.toString();
-        print("layerString $layerString");
+          for(var layer in vt.layers) {
+            var layerString = layer.name.toString();
+            ///print("$tileCoordsKey layerString $layerString");
 
-        for (vector_tile.Tile_Feature feature in layer.features) {
-          ///TileFeature tileFeature = TileFeature();
-          var featureInfo = {};
-          List<Offset> pointList = [];
-          var command = '';
-          var point;
-          dartui.Path path = dartui.Path();
+            for (vector_tile.Tile_Feature feature in layer.features) {
 
-          ///print("$feature");
-          for (var tagIndex = 0; tagIndex < feature.tags.length; tagIndex += 2) {
-            var valIndex = feature.tags[tagIndex + 1];
-            var layerObj = layer.values[valIndex];
-            var val;
+              var featureInfo = {};
+              List<Offset> pointList = [];
+              var command = '';
+              var point;
+              dartui.Path? path;
 
-            if (layerObj.hasIntValue()) {
-              val = layerObj.intValue.toString();
-            } else if (layerObj.hasStringValue()) {
-              val = layerObj.stringValue;
-            } else {
-              val = layerObj.boolValue.toString();
-            }
+              for (var tagIndex = 0; tagIndex < feature.tags.length; tagIndex += 2) {
+                var valIndex = feature.tags[tagIndex + 1];
+                var layerObj = layer.values[valIndex];
+                var val;
 
-            featureInfo[layer.keys[feature.tags[tagIndex]]] = val;
-          }
-
-          List<Offset> polyPoints = [];
-
-          //var type = feature.type.toString();
-
-          FeatureType featureType = FeatureType.LineString;
-
-          var geometry = feature.geometry;
-
-          var gIndex = 0;
-          int cx = 0; int cy = 0;
-
-          while(gIndex < geometry.length) {
-            var commandByte = geometry[ gIndex ];
-
-            if(reps == 0) {
-              command = 'M';
-              var checkCom = commandByte & 0x7;
-              reps = commandByte >> 3;
-              if(checkCom == 1) {
-                command = 'M';
-              } else if (checkCom == 2) {
-                command = 'L';
-              } else if (checkCom == 7) {
-                command = 'C';
-                reps = 0;
-
-                if(feature.type == vector_tile.Tile_GeomType.LINESTRING) {
-                //if (feature.type.toString() == 'POLYGON') {
-
-                  path = dartui.Path();  /// check...........
-
-
-                  path.addPolygon(polyPoints, true);
-
-                  polyPoints = [];
-                  featureType = FeatureType.Polygon;
+                if (layerObj.hasIntValue()) {
+                  val = layerObj.intValue.toString();
+                } else if (layerObj.hasStringValue()) {
+                  val = layerObj.stringValue;
                 } else {
-                  path.close();
+                  val = layerObj.boolValue.toString();
                 }
 
-              } else {
-                print("Shouldn't have got here, some command unknown");
+                featureInfo[layer.keys[feature.tags[tagIndex]]] = val;
               }
+              var tags = featureInfo;
 
-              gIndex++;
-            } else {
-              cx += decodeZigZag(geometry[ gIndex ]);
-              cy += decodeZigZag(geometry[ gIndex + 1]);
+              List<Offset> polyPoints = [];
 
-              double? ncx, ncy;
-              if (command == 'M' || (command == 'L')) {
-                ncx = (cx.toDouble() / 16); // Change /16 to a tileRatio passed in..
-                ncy = (cy.toDouble() / 16);
-              }
+              var type = feature.type.toString();
 
-              var type = feature.type;
-              if (command == 'C') { // CLOSE
+              FeatureType featureType = FeatureType.LineString;
 
-              } else if (command == 'M') { // MOVETO
-                //if (type == 'POLYGON') {
-                if (type == vector_tile.Tile_GeomType.POLYGON) {
-                  polyPoints = [];
-                  polyPoints.add(Offset(ncx!, ncy!));
+              var geometry = feature.geometry;
 
-                  featureType = FeatureType.Polygon;
+              var gIndex = 0;
+              int cx = 0; int cy = 0;
 
-                ///} else if (type == 'LINESTRING') {
-                } else if (type == vector_tile.Tile_GeomType.LINESTRING) {
-                  /// /////////path ??= dartui.Path();
-                  path = dartui.Path();
-                  path.moveTo(ncx!, ncy!);
-                  featureType = FeatureType.LineString;
+              while(gIndex < geometry.length) {
+                var commandByte = geometry[ gIndex ];
 
-                } else if (type == vector_tile.Tile_GeomType.POINT) {
+                if(reps == 0) {
+                  command = 'M';
+                  var checkCom = commandByte & 0x7;
+                  reps = commandByte >> 3;
+                  if(checkCom == 1) {
+                    command = 'M';
+                  } else if (checkCom == 2) {
+                    command = 'L';
+                  } else if (checkCom == 7) {
+                    command = 'C';
+                    reps = 0;
 
-                  point = Offset(ncx!, ncy!);
-                  pointList.add(point);
+                    path ??= dartui.Path();
+                    if(type == "POLYGON") {
+                      path.addPolygon(polyPoints, true);
+                      featureType = FeatureType.Polygon;
+                    } else {
+                      path.addPolygon(polyPoints, false);
+                      featureType = FeatureType.LineString;
+                    }
+                    polyPoints = [];
+                    /*
 
-                  var dedupeKey = featureInfo['name'] ?? point.toString();
-                  dedupeKey += '_' + tileCoordsKey;
-                  var priority = 1; // 1 is best priority
+                    if(type == "POLYGON") {
+                      if(path == null) {
+                        path ??= dartui.Path();
+                      } else {
+                        path.addPolygon(polyPoints, true);
+                      }
+                      polyPoints = [];
+                      featureType = FeatureType.Polygon;
+                    } else {
+                      if(path == null) {
+                        path ??= dartui.Path();
+                      } else {
+                        path.addPolygon(polyPoints, false);
+                      }
+                      polyPoints = [];
+                      featureType = FeatureType.LineString;
+                      //path?.close();
+                    }
 
-                  /// We want a poi or a shop label to appear rather than a housenum if poss
-                  if(layer.name == "housenum_label") {
-                    featureInfo['name'] = featureInfo['house_num'];
-                    dedupeKey = "${featureInfo['name']}|$point";
-                    priority = 9;
+                     */
+
+                    ///var closed = featureType == FeatureType.Polygon ? true : false;
+                    ///if( path != null ) path.addPolygon(polyPoints, closed);
+
+                    ///polyPoints = [];
+
+                  } else {
+                    print("Shouldn't have got here, some command unknown");
+                  }
+                  gIndex++;
+                } else {
+                  cx += decodeZigZag(geometry[ gIndex ]);
+                  cy += decodeZigZag(geometry[ gIndex + 1]);
+
+                  double? ncx, ncy;
+                  if (command == 'M' || (command == 'L')) {
+
+                    path ??= dartui.Path();
+                    ncx = (cx.toDouble() / 16); // Change /16 to a tileRatio passed in..
+                    ncy = (cy.toDouble() / 16);
                   }
 
-                  //labelPointlist.add([ point, layer.name, featureInfo, dedupeKey, priority ]);  /// May want to add a style here, to draw last thing..., move into a class
-                  //tileStats.points++;
-                  //tileStats.labelPoints++;
-                  featureType = FeatureType.Point;
-                  //geomType = GeomType.point;
+                  var type = feature.type.toString();
+                  if (command == 'C') { // CLOSE
+                    if(path != null) {
+                      print("IS THIS EVER USED ? IF SO< CLOSE MAY BE WRONG>>>>>");
+                      path.addPolygon(polyPoints, false); /// ////////////////// true/false if used
+                    }
+                    polyPoints = [];
 
+                  } else if (command == 'M') { // MOVETO
+                    //if (type == 'POLYGON') {
+                    path ??= dartui.Path();
+                    if (type == "POLYGON") {
+                      if(polyPoints.isNotEmpty) {
+                        path.addPolygon(polyPoints, true);
+                      }
+                      polyPoints = [];
+                      polyPoints.add(Offset(ncx!, ncy!));
+
+                      featureType = FeatureType.Polygon;
+
+                    } else if (type == "LINESTRING") {
+
+                      if(polyPoints.isNotEmpty) {
+                        path.addPolygon(polyPoints, false);
+                      }
+                      polyPoints = [];
+                      polyPoints.add(Offset(ncx!, ncy!));
+                      featureType = FeatureType.LineString;
+
+                    } else if (type == "POINT") {
+
+                      point = Offset(ncx!, ncy!);
+                      pointList.add(point);
+
+                      var dedupeKey = featureInfo['name'] ?? point.toString();
+                      dedupeKey += '_' + tileCoordsKey;
+                      var priority = 1; // 1 is best priority
+
+                      /// We want a poi or a shop label to appear rather than a housenum if poss
+                      if(layer.name == "housenum_label") {
+                        featureInfo['name'] = featureInfo['house_num'];
+                        dedupeKey = "${featureInfo['name']}|$point";
+                        priority = 9;
+                      }
+
+                      //labelPointlist.add([ point, layer.name, featureInfo, dedupeKey, priority ]);  /// May want to add a style here, to draw last thing..., move into a class
+
+                      featureType = FeatureType.Point;
+
+
+                    }
+
+                  } else if (command == 'L') { // LINETO
+
+                    if (type == "POLYGON") {
+
+                      polyPoints.add(Offset(ncx!, ncy!));
+
+                      featureType = FeatureType.Polygon;
+
+                    } else if (type == "LINESTRING") {
+                      polyPoints.add(Offset(ncx!, ncy!));
+                      featureType = FeatureType.LineString;
+                    }
+                  } else {
+                    print("Incorrect command string");
+                  }
+
+                  gIndex += 2;
+                  reps--;
                 }
-
-              } else if (command == 'L') { // LINETO
-
-                if (type == vector_tile.Tile_GeomType.POLYGON) {
-                  polyPoints.add(Offset(ncx!, ncy!));
-                  //tileStats.polyPoints++;
-                  featureType = FeatureType.Polygon;
-                  ///geomType = GeomType.polygon;
-                } else if (type == vector_tile.Tile_GeomType.LINESTRING) {
-                  path.lineTo(ncx!, ncy!);
-                  //tileStats.linePoints++;
-                  featureType = FeatureType.LineString;
-                  //geomType = GeomType.linestring;
-                }
-              } else {
-                print("Incorrect command string");
               }
 
-              gIndex += 2;
-              reps--;
-            }
-          }
+              if(polyPoints.isNotEmpty) {
+                path ??= dartui.Path();
 
-          if(featureType == FeatureType.Polygon || featureType == FeatureType.LineString) {
-            tileFeatureList.add(ProcessedFeature(type: featureType, tags: featureInfo, path: path));
-          } else {
-            tileFeatureList.add(ProcessedFeature(type: featureType, tags: featureInfo, point: point));
-          }
-         // print("$featureInfo");
-          //tileFeatureList.add(path);
-        }
+                if(type == "POLYGON") {
+                  path.addPolygon(polyPoints, true);
+                } else {
+                  path.addPolygon(polyPoints, false);
+                }
+              }
 
+              if(featureType == FeatureType.Polygon || featureType == FeatureType.LineString) {
+                tileFeatureList.add(ProcessedFeature(type: featureType, tags: featureInfo, path: path));
+              } else {
+                tileFeatureList.add(ProcessedFeature(type: featureType, tags: featureInfo, point: point));
+              }
+
+              path = null;
+            } // end feature
+
+
+            vectorTileIndex!.tile[tileCoordsKey]!.layers.add(VectorLayer(layerString, tileFeatureList));
+            tileFeatureList = [];
+
+          } // end layer
+
+        });
+      } catch (e) {
+        print("ERROR LOADING URL $e $coords");
+        return;
       }
-
-      //print(" tile featurelist $tileFeatureList");
-
-      vectorTileIndex!.tile[tileCoordsKey]!.features = tileFeatureList;
-
-      //late vector_tile.Tile vt;
-
-      //if(units != null)
-      //  vt = vector_tile.Tile.fromBuffer(units);
-    });
+    }
   }
 }
 
@@ -1146,94 +1217,699 @@ class FeatureVectorTilePainter extends CustomPainter with ChangeNotifier {
 
   //final Stream<Null>? stream;
   final GeoJSONOptions options;
-  final List<ProcessedFeature> features;
- // MapState mapState;
+  final List<VectorLayer> layers;
+  MapState mapState;
   //Matrix4 matrix;
   PositionInfo pos;
   Paint? singleStyle;
 
-  FeatureVectorTilePainter({ required this.features, required this.pos, required this.options,  });
+  FeatureVectorTilePainter({ required this.layers, required this.pos, required this.options,  required this.mapState });
 
 
   @override
   void paint(Canvas canvas, Size size) {
-    draw(features, pos, canvas, options);
+    Rect myRect = const Offset(0,0) & const Size(256.5,256.5); // hmm some other rounding errer gone astray, shouldn't need this .5...
+    canvas.clipRect(myRect);
+    draw(layers, pos, canvas, mapState.zoom, options);
   }
 
 
-  void draw(List<ProcessedFeature> features, PositionInfo pos, Canvas canvas, GeoJSONOptions options) async  {
-
+  void draw(List<VectorLayer> layers, PositionInfo pos, Canvas canvas, zoom, GeoJSONOptions options) async {
     // Batch paths where possible...
     var superPath = dartui.Path();
 
-    for( var count = 0; count < features.length; count++ ) {
+    Map<String, int> layerOrderMap = VectorLayerStyles.defaultLayerOrder();
 
-      var feature = features[count];
-      var type = feature.type;
-      var tags = feature.tags;
-      var hasJsonStyle;
-      //print("${feature.tags}");
+    layers.sort((a, b) {
+      return (layerOrderMap[ a.layerName ] ?? 15).compareTo(
+          layerOrderMap[ b.layerName ] ?? 15);
+    });
 
-      Paint featurePaint = Styles.getPaint(feature, null, options);
+    for (var layer in layers) {
+      var features = layer.features;
+      var layerName = layer.layerName;
 
-      if (type == FeatureType.Point) { // point
-        canvas.save();
-        canvas.translate(feature.point!.dx, feature.point!.dy);
-        canvas.scale(1 / pos.scale);
-        if (options.pointFunc != null) {
-          options.pointFunc!(feature, canvas);
-        } else {
-          canvas.drawCircle(const Offset(0,0), 5, featurePaint);
-        }
-        canvas.restore();
-      }
+      var lastType;
+      for (var count = 0; count < features.length; count++) {
 
-      if(type == FeatureType.LineString || type == FeatureType.Polygon) { // line = 2, poly = 3
+        var feature = features[count];
+        var type = feature.type;
+        lastType ??= type;
+        var tags = feature.tags;
 
 
-        //var path = dartui.Path()
-        //  ..fillType = dartui.PathFillType.evenOdd;
-       /* for( var ring in feature.geometry ) {
-          List<Offset> offsets = [];
-          for (var c = 0; c < ring.length; c++) {
-            offsets.add(Offset(ring[c][0].toDouble(), ring[c][1].toDouble()));
+        Paint featurePaint = Styles.getPaint(feature, null, options);
+
+        if (type == FeatureType.Point) { // point
+          canvas.save();
+
+          canvas.translate(feature.point!.dx, feature.point!.dy);
+          canvas.scale(1 / pos.scale);
+          if (options.pointFunc != null) {
+            options.pointFunc!(feature, canvas);
+          } else {
+            canvas.drawCircle(const Offset(0, 0), 3, featurePaint);
           }
-          path.addPolygon(offsets,false);
-        }
-        */
-        featurePaint.strokeWidth = featurePaint.strokeWidth / pos.scale;
-        // polygon MUST have fill type whatever
-        if(type == FeatureType.Polygon) {
-          featurePaint.style = PaintingStyle.fill;
+          canvas.restore();
         }
 
-        if(options.featuresHaveSameStyle) {
-          superPath.addPath(feature.path!, const Offset(0,0));
-        } else {
-          canvas.drawPath(feature.path!, featurePaint);
-        }
+        if (type == FeatureType.LineString ||
+            type == FeatureType.Polygon) { // line = 2, poly = 3
 
-        // We may get a mixed polgon followed by a point or line, so we want to
-        // draw now to preserve order, but if all the same style may as well batch
-        if((count < features.length - 1 && (features[count+1].type != type) ) ||
-            (count == features.length - 1)) {
-          canvas.drawPath(superPath, featurePaint);
-          superPath = dartui.Path();
+          var paint = VectorLayerStyles.getStyle(VectorLayerStyles.mapBoxClassColorStyles, tags,
+              layerName, type, zoom,
+              pos.scale, 2);
+
+          paint.strokeWidth = featurePaint.strokeWidth / pos.scale * 5;
+          // polygon MUST have fill type whatever
+          if (type == FeatureType.Polygon) {
+            paint.style = PaintingStyle.fill;
+          } else {
+            paint.style = PaintingStyle.stroke;
+          }
+
+          if (false && options.featuresHaveSameStyle && type == lastType) {
+            print("superpath");
+            superPath.addPath(feature.path!, const Offset(0, 0));
+          } else {
+            ///if(layerName == "building"  || layerName == "road") {
+            ///print("$layerName");
+            ///if(layerName == "road" || layerName == "building" || layerName == "landuse" || layerName == "structure") {
+            ///if(layerName == "building" || layerName == "landuse") {
+            ///  print("drawing feature ${featurePaint.style} ${featurePaint
+             ///     .color} $tags");
+              ///print("drawing path");
+              ///canvas.drawPath(feature.path!, featurePaint);
+              // vectorStyle, layerString, type, featureInfo, zoom
+              if( VectorLayerStyles.includeFeature(VectorLayerStyles.mapBoxClassColorStyles,
+                  layerName, type, tags, zoom) ) {
+                ///if (tags['type'] == 'residential') {
+                  canvas.drawPath(feature.path!, paint);
+                ///}
+              }
+            ///}
+          }
+
+          lastType = type;
+
+          // We may get a mixed polgon followed by a point or line, so we want to
+          // draw now to preserve order, but if all the same style may as well batch
+          if ((count < features.length - 1 &&
+              (features[count + 1].type != type)) ||
+              (count == features.length - 1)) {
+            //print("drawing superpath");
+            if( VectorLayerStyles.includeFeature(VectorLayerStyles.mapBoxClassColorStyles, layerName, type,
+                tags, zoom) ) {
+            canvas.drawPath(superPath, paint);
+            superPath = dartui.Path();
+            }
+          }
         }
       }
     }
   }
 
   @override
-  bool shouldRepaint(FeatureVectorTilePainter oldDelegate) => oldDelegate.features != features ;
+  bool shouldRepaint(FeatureVectorTilePainter oldDelegate) => oldDelegate.layers != layers  || true ||
+      oldDelegate.mapState.zoom != mapState.zoom ||
+      oldDelegate.mapState.center.latitude != mapState.center.latitude ;
 
 }
 
 int decodeZigZag( int byte ) { /// decodes from mapbox small int style
-  return ((byte >> 1) ^ -(byte & 1)).toInt();
+  if(kIsWeb) {
+    var bigInt = BigInt.from(byte);
+    return ((bigInt >> 1) ^ -(bigInt & BigInt.from(1))).toInt();
+  } else {
+    return ((byte >> 1) ^ -(byte & 1)).toInt();
+  }
 }
 
 String tileCoordsToKey(Coords coords) {
   return '${coords.x}:${coords.y}:${coords.z}';
 }
+
+bool isValidTile(Coords coords, MapState mapState) {
+  final crs = mapState.options.crs;
+
+  if (!crs.infinite) {
+    // don't load tile if it's out of bounds and not wrapped
+    var bounds = mapState.getPixelWorldBounds(mapState.zoom);
+    bounds = pxBoundsToTileRange(bounds!, const CustomPoint(256.0,256.0));
+    if ((crs.wrapLng == null &&
+        (coords.x < bounds.min.x || coords.x > bounds.max.x)) ||
+        (crs.wrapLat == null &&
+            (coords.y < bounds.min.y || coords.y > bounds.max.y))) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+Bounds pxBoundsToTileRange(Bounds bounds, CustomPoint tileSize ) {
+  return Bounds(
+    bounds.min.unscaleBy(tileSize).floor(),
+    bounds.max.unscaleBy(tileSize).ceil() - const CustomPoint(1, 1),
+  );
+}
+
+class VectorLayerStyles {
+
+  static bool includeFeature(vectorStyle, layerString, type, featureInfo, zoom) { //reduce code...
+
+    var thisClass = featureInfo['class'] ?? 'default';
+    var paramsMap = { 'layer': layerString, 'type': type, 'class': thisClass, 'zoom': zoom, 'featureInfo': featureInfo };
+
+    var style = funcCheck( vectorStyle, paramsMap);
+    var includeFeature = funcCheck( style['default'], paramsMap )['include'];
+
+    if(!vectorStyle.containsKey(layerString)) layerString = 'default';
+
+    if(vectorStyle.containsKey(layerString)) {
+      var layerStyle = funcCheck( vectorStyle[layerString], paramsMap );
+
+      includeFeature = funcCheck( layerStyle!['include'], paramsMap );
+      var classOptions = funcCheck( layerStyle!['default'], paramsMap );
+
+      if( layerStyle!.containsKey('types') && layerStyle!['types'].containsKey(type)) { // types match in styling
+        classOptions = funcCheck( layerStyle!['types'][type], paramsMap );
+
+      } else if( layerStyle!.containsKey(thisClass) ) { // normal class match in styling
+        classOptions = funcCheck( layerStyle![thisClass], paramsMap );
+      }
+
+      if( includeFeature && classOptions is List ) {
+        var listIncludes = false;
+
+        for( var entry in classOptions ) {
+          var minZoom = funcCheck( entry[0], paramsMap );
+          var maxZoom = funcCheck( entry[1], paramsMap );
+
+          if( zoom >= minZoom && zoom <= maxZoom ) {
+            listIncludes = true; // we have at least one entry for this zoom
+            break;
+          }
+        }
+        if( listIncludes == false ) {
+          includeFeature = false;
+        }
+      }
+    }
+
+    return funcCheck( includeFeature, paramsMap );
+  }
+
+  static Paint getStyle(style, featureInfo, layerString, type, tileZoom, scale, diffRatio) {
+    var paramsMap = { 'layer': layerString, 'type': type, 'zoom': tileZoom, 'diffRatio': diffRatio, 'featureInfo': featureInfo };
+
+    var className = featureInfo['class'] ?? 'default';
+
+    var paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..color = Colors.grey
+      ..strokeWidth = 2
+      ..strokeCap = StrokeCap.round
+      ..isAntiAlias = false;
+
+    if(type == 'LINESTRING' || type == 'line') paint.style = PaintingStyle.stroke; // are roads filled ?
+    if(type == 'POLYGON'    || type == 'fill') paint.style = PaintingStyle.fill;
+
+    bool matchedFeature = false;
+    Map vectorStyle = funcCheck(style, paramsMap);
+
+    if(!vectorStyle.containsKey(layerString)) layerString = 'default';
+
+    if(vectorStyle.containsKey(layerString)) {
+      Map<String, dynamic>? layerClass = funcCheck(vectorStyle[layerString],paramsMap) ?? funcCheck(vectorStyle['default'], paramsMap);
+      List<List<dynamic>>? featureClass = funcCheck(vectorStyle['default'],paramsMap)?['default'];
+
+      if (layerClass != null) {
+        if (layerClass.containsKey('types') &&
+            layerClass['types'].containsKey(className)) {
+          featureClass = funcCheck(layerClass['types'][className], paramsMap);
+          matchedFeature = true;
+        }
+      }
+
+      if (layerClass != null && layerClass.containsKey(className)) {
+        featureClass = funcCheck(layerClass[className], paramsMap);
+        matchedFeature = true;
+      }
+
+      if (featureClass is List) {
+        if( featureClass != null) {
+          for (var entry in featureClass) {
+            var minZoom = funcCheck(entry[0], paramsMap);
+            var maxZoom = funcCheck(entry[1], paramsMap);
+            var styleOptions = funcCheck(entry[2], paramsMap);
+
+            if (tileZoom >= minZoom && tileZoom <= maxZoom && styleOptions is Map) {
+
+              if (styleOptions.containsKey('color'))
+                paint.color = funcCheck(styleOptions['color'], paramsMap);
+              if (styleOptions.containsKey('strokeWidth'))
+                paint.strokeWidth = funcCheck(styleOptions['strokeWidth'], paramsMap);
+            }
+          }
+        }
+      }
+    }
+
+    ///if(!matchedFeature && debugOptions.missingFeatures) print ("$layerString $type $className $tileZoom not found");
+
+    paint.strokeWidth =  (paint.strokeWidth / scale); ///.ceilToDouble();
+    return paint;
+  }
+
+  /// We want to give the option of any var being a func to call..
+  static dynamic funcCheck( dynamic checkVar, Map paramMap ) {
+    if(checkVar is Function) return checkVar( paramMap );
+    return checkVar;
+  }
+
+  static Map<String, int> defaultLayerOrder() {
+    return {
+      'landuse': 1,
+      'waterway' : 3,
+      'water' : 2,
+      'aeroway': 7,
+      'data': 9,
+      'barrierline': 11,
+      'building' : 13,
+      'landuse_overlay': 15,
+      'tunnel': 17,
+      'structure': 19,
+      'road': 21,
+      'bridge': 23,
+      'motorway_junction': 25,
+      'airport_label': 27,
+      'natural_label' : 29,
+      'water_label': 30,
+      'poi_label' : 31,
+      'transit_stop_label' : 33,
+      'place_label' : 35,
+      'house_num_label': 37,
+    };
+  }
+
+  static Map<String, Map<String, dynamic>> mapBoxClassColorStyles = {
+
+    "default": {
+      'include': true,
+      'default':  [ [0, 22, { 'color': Colors.purple, 'strokeWidth': 0.0}],
+      ],
+    },
+
+    "admin": {
+      'include': true,
+      'default':  [ [0, 22, { 'color': Colors.deepPurple, 'strokeWidth': 0.0}],
+      ],
+    },
+
+    ///mapbox streets
+    ///hairline = switch to a hairline width of 0 for optimisation at low zoom levels where we dont care
+    "road": {
+      'include': true,
+      'default':      [ [0, 22, { 'color': Colors.orange, 'strokeWidth' : 0.0  }     ],
+        [16,22, { 'color': Colors.orange, 'strokeWidth' : 2.0 }     ],
+      ],
+      'service':      [ [12, 22, { 'color': Colors.blueGrey.shade600, 'strokeWidth' : 0.0  }     ],
+        [17,22, { 'color': Colors.blueGrey.shade300, 'strokeWidth' : 8.0 }     ],
+      ],
+      'street':       [ [15, 22, { 'color': Colors.blueGrey.shade600, 'strokeWidth' : 0.0  }     ],
+        [17,22, { 'color': Colors.blueGrey.shade300, 'strokeWidth' : 8.0 }     ],
+      ],
+      'pedestrian':   [ [15, 22, { 'color': Colors.blueGrey.shade600, 'strokeWidth' : 0.0  }     ],
+        [17,22, { 'color': Colors.blueGrey.shade300, 'strokeWidth' : 8.0 }     ],
+      ],
+      'street_limited':[[15, 22, { 'color': Colors.blueGrey.shade600, 'strokeWidth' : 0.0  }     ],
+        [17,22, { 'color': Colors.blueGrey.shade300, 'strokeWidth' : 8.0 }     ],
+      ],
+      'motorway':     [ [0, 11, { 'color': Colors.orange,           'strokeWidth' : 0.0  }     ],
+        [12,5, { 'color': Colors.orange.shade200, 'strokeWidth' : 3.0 }     ],
+        [14,22, { 'color': Colors.orange.shade100, 'strokeWidth' : 8.0 }     ],
+      ],
+      'motorway_link':  [ [0, 11, { 'color': Colors.orange,        'strokeWidth' : 0.0  }     ],
+        [12,15, { 'color': Colors.orange.shade200, 'strokeWidth' : 3.0 }     ],
+        [14,22, { 'color': Colors.orange.shade100, 'strokeWidth' : 8.0 }     ],
+      ],
+      'trunk':        [ [0, 11, { 'color': Colors.orangeAccent,    'strokeWidth' : 0.0  }     ],
+        [12,15, { 'color': Colors.orange.shade200, 'strokeWidth' : 3.0 }     ],
+        [17,22, { 'color': Colors.orange.shade100, 'strokeWidth' : 8.0 }     ],
+      ],
+      'trunk_link':    [[0, 11, { 'color': Colors.orangeAccent,     'strokeWidth' : 0.0  }     ],
+        [12,16, { 'color': Colors.orange.shade100, 'strokeWidth' : 3.0 }     ],
+        [17,22, { 'color': Colors.orange.shade100, 'strokeWidth' : 8.0 }     ],
+      ],
+      'primary':     [  [11, 16, { 'color': Colors.blueGrey.shade300, 'strokeWidth' : 0.0  }     ],
+        [17,22, { 'color': Colors.blueGrey.shade300, 'strokeWidth' : 8.0 }     ],
+      ],
+      'primary_link': [ [11, 16, { 'color': Colors.blueGrey.shade400, 'strokeWidth' : 0.0  }     ],
+        [17,22, { 'color': Colors.blueGrey.shade300, 'strokeWidth' : 8.0 }     ],
+      ],
+      'secondary':   [  [11, 16, { 'color': Colors.blueGrey.shade400, 'strokeWidth' : 0.0  }     ],
+        [17,22, { 'color': Colors.blueGrey.shade300, 'strokeWidth' : 8.0 }     ],
+      ],
+      'secondary_link':[[11, 16, { 'color': Colors.blueGrey.shade400, 'strokeWidth' : 0.0  }     ],
+        [17,22, { 'color': Colors.blueGrey.shade300, 'strokeWidth' : 8.0 }     ],
+      ],
+      'tertiary':     [ [14, 16, { 'color': Colors.blueGrey.shade400, 'strokeWidth' : 0.0  }     ],
+        [17,22, { 'color': Colors.blueGrey.shade300, 'strokeWidth' : 8.0 }     ],
+      ],
+      'tertiary_link': [[14, 22, { 'color': Colors.blueGrey.shade400, 'strokeWidth' : 0.0  }   ],
+        [17,22, { 'color': Colors.blueGrey.shade300, 'strokeWidth' : 8.0 }     ],
+      ],
+      'residential':  [ [14, 15, { 'color': Colors.blueGrey.shade600, 'strokeWidth' : 0.0  }     ],
+        [16,22, { 'color': Colors.blueGrey.shade300, 'strokeWidth' : 5.0 }     ],
+        [17,22, { 'color': Colors.blueGrey.shade300, 'strokeWidth' : 7.0 }     ],
+      ],
+      'path':         [ [0, 22, { 'color': Colors.brown.shade400,    'strokeWidth' : 2.0  }     ],
+      ],
+      'track':        [ [0, 22, { 'color': Colors.brown.shade300,    'strokeWidth' : 2.0  }     ],
+      ],
+      'major_rail':   [ [12, 22, { 'color': Colors.blueGrey.shade800, 'strokeWidth' : 1.0  }     ],
+      ],
+      'minor_rail':   [ [12, 22, { 'color': Colors.blueGrey.shade800, 'strokeWidth' : 1.0  }     ],
+      ],
+      'service_rail': [ [12, 22, { 'color': Colors.blueGrey.shade800, 'strokeWidth' : 1.0  }     ],
+      ],
+      'construction': [ [14, 22, { 'color': Colors.brown,              'strokeWidth' : 0.0  }     ],
+      ],
+      'ferry':        [ [0, 22, { 'color': Colors.blue.shade800,      'strokeWidth' : 0.0  }     ],
+      ],
+      'golf':         [ [15, 22, { 'color': Colors.brown.shade400,    'strokeWidth' : 2.0  }     ],
+      ],
+      'aerialway':    [ [14, 22, { 'color': Colors.brown.shade400,    'strokeWidth' : 2.0  }     ],
+      ],
+    },
+
+    "motorway_junction": {
+      'include': true,
+      'default':  [ [0, 22, { 'color': Colors.deepPurple, 'strokeWidth': 5.0}],
+      ],
+    },
+
+    "landuse": {
+      'include': true,
+      'residential': [ [13, 21, { 'color': Colors.grey,        'strokeWidth': 0.0 } ],
+      ],
+      'default':  [ [14, 22, { 'color': Colors.lightGreen,   'strokeWidth': 0.0 } ],
+      ],
+      'airport':  [ [13, 21, { 'color': Colors.grey,        'strokeWidth': 0.0 } ],
+      ],
+      'hospital':  [ [15, 21, { 'color': Colors.grey,        'strokeWidth': 0.0 } ],
+      ],
+      'sand':     [ [12, 21, { 'color': Colors.amber,       'strokeWidth': 0.0 } ],
+      ],
+      'playground':[[14, 22, { 'color': Colors.green.shade400, 'strokeWidth': 0.0 } ],
+      ],
+      'grass':    [ [13, 22, { 'color': Colors.lightGreen, 'strokeWidth': 0.0 } ],
+      ],
+      'park':     [ [13, 22,  { 'color': Colors.lightGreen, 'strokeWidth': 0.0 } ],
+      ],
+      'pitch':     [ [13, 22,  { 'color': Colors.green,     'strokeWidth': 0.0 } ],
+      ],
+      'parking':     [ [14, 22,  { 'color': Colors.green.shade100, 'strokeWidth': 0.0 } ],
+      ],
+      'wood':       [ [10, 22,  { 'color': Colors.green.shade800,   'strokeWidth': 0.0 } ],
+      ],
+      'agriculture':  [ [13, 22,  { 'color': Colors.green.shade700,   'strokeWidth': 0.0 } ],
+      ],
+      'school':     [ [14, 22,  { 'color': Colors.grey,             'strokeWidth': 0.0 } ],
+      ],
+      'scrub':     [ [10, 22,  { 'color': Colors.green.shade600,   'strokeWidth': 0.0 } ],
+      ],
+      'cemetery':   [ [15, 22,  { 'color': Colors.green.shade700,   'strokeWidth': 0.0 } ],
+      ],
+      'rock':       [ [12, 22,  { 'color': Colors.grey,   'strokeWidth': 0.0 } ],
+      ],
+      'glacier':   [ [12, 22,  { 'color': Colors.grey,   'strokeWidth': 0.0 } ],
+      ],
+    },
+
+    "landuse_overlay": {
+      'include': true,
+      'default': [ [12, 22, { 'color': Colors.green, 'strokeWidth': 0.0}],
+      ],
+      'national_park': [ [12, 22, { 'color': Colors.green, 'strokeWidth': 0.0}],
+      ],
+      'wetland_noveg': [ [11, 22, { 'color': Colors.blueGrey, 'strokeWidth': 0.0}],
+      ],
+      'wetland': [ [12, 22, { 'color': Colors.blue.shade700, 'strokeWidth': 0.0}],
+      ],
+    },
+
+    "water": {
+      'include': true,
+      'default': [ [0, 22, { 'color': Colors.blue.shade500, 'strokeWidth': 0.0}],
+      ],
+    },
+
+    "waterway": {
+      'include': true,
+      'default': [ [13, 22, { 'color': Colors.blue.shade700, 'strokeWidth': 0.0}],
+      ],
+      'river': [ [12, 22, { 'color': Colors.blue.shade600, 'strokeWidth': 0.0}],
+      ],
+      'canal': [ [12, 22, { 'color': Colors.blue.shade600, 'strokeWidth': 0.0}],
+      ],
+      'stream': [ [14, 22, { 'color': Colors.blue.shade900, 'strokeWidth': 0.0}],
+      ],
+      'stream_intermittent': [ [13, 22, { 'color': Colors.blue.shade900, 'strokeWidth': 0.0}],
+      ],
+      'ditch': [ [12, 22, { 'color': Colors.blue.shade600, 'strokeWidth': 0.0}],
+      ],
+      'drain': [ [13, 22, { 'color': Colors.blue.shade600, 'strokeWidth': 0.0}],
+      ],
+    },
+
+    "transit_stop": {
+      'include': true,
+      'default': [ [14, 22, { 'color': Colors.deepOrange, 'strokeWidth': 0.0}],
+      ],
+    },
+
+    "building": {
+      'include': true,
+      'default': [ [15, 22, { 'color': Colors.grey.shade600, 'strokeWidth': 0.0}],
+      ],
+    },
+
+    "structure": {
+      'include': true,
+      'default': [ [15, 22, { 'color': Colors.grey.shade600, 'strokeWidth': 0.0}],
+      ],
+      'fence':  [ [15, 22, { 'color': Colors.brown.shade300, 'strokeWidth': 0.0}],
+      ],
+      'hedge':  [ [15, 22, { 'color': Colors.brown.shade300, 'strokeWidth': 0.0}],
+      ],
+      'gate':  [ [16, 22, { 'color': Colors.brown.shade600, 'strokeWidth': 0.0}],
+      ],
+      'land':  [ [16, 22, { 'color': Colors.brown.shade300, 'strokeWidth': 0.0}], // eg pier
+      ],
+      'cliff':  [ [16, 22, { 'color': Colors.grey, 'strokeWidth': 0.0}], // eg pier
+      ],
+    },
+
+    "barrierline": {
+      'include': true,
+      'default': [ [12, 22, { 'color': Colors.purple, 'strokeWidth': 0.0}],
+      ],
+    },
+
+    "aeroway": {
+      'include': true,
+      'default': [ [12, 22, { 'color': Colors.orange, 'strokeWidth': 0.0}],
+      ],
+    },
+
+    "waterway_label": {
+      'include': true,
+      'default': [ [15, 22, { 'color': Colors.black, 'strokeWidth': 2}],
+      ],
+    },
+
+    "poi_label": {
+      'include': true,
+      'default':        [ [15, 22, { 'color': Colors.black, 'strokeWidth': 2}],
+      ],
+      'food_and_drink': [ [16, 22, { 'color': Colors.black, 'strokeWidth': 2}],
+      ],
+      'religion':      [ [15, 22, { 'color': Colors.black, 'strokeWidth': 2}],
+      ],
+      'sport_and_leisure':[ [15, 22, { 'color': Colors.black, 'strokeWidth': 2}],
+      ],
+      'food_and_drink_stores': [ [16, 22, { 'color': Colors.black, 'strokeWidth': 2}],
+      ],
+      'park_like': [ [16, 22, { 'color': Colors.black, 'strokeWidth': 2}],
+      ],
+      'education': [ [16, 22, { 'color': Colors.black, 'strokeWidth': 2}],
+      ],
+      'public_facilities': [ [15, 22, { 'color': Colors.black, 'strokeWidth': 2}],
+      ],
+      'commercial_services ': [ [16, 22, { 'color': Colors.black, 'strokeWidth': 2}],
+      ],
+    },
+
+    "transit_stop_label": {
+      'include': true,
+      'default': [ [14, 22, { 'color': Colors.black, 'strokeWidth': 2}],
+      ],
+    },
+
+    "road_point": {
+      'include': true,
+      'default': [ [14, 22, { 'color': Colors.black, 'strokeWidth': 2}],
+      ],
+    },
+
+    "road_label": {
+      'include': true,
+      'default': [ [14, 22, { 'color': Colors.black, 'strokeWidth': 2}],
+      ],
+    },
+
+    "rail_station_label": {
+      'include': true,
+      'default': [ [14, 22, { 'color': Colors.black, 'strokeWidth': 2}],
+      ],
+    },
+
+    "natural_label": {
+      'include': true,
+      'default': [ [14, 22, { 'color': Colors.brown, 'strokeWidth': 0.0}],
+      ],
+      'landform':  [ [12, 22, { 'color': Colors.brown, 'strokeWidth': 0.0}],
+      ],
+      'sea':  [ [12, 22, { 'color': Colors.black, 'strokeWidth': 0.0}],
+      ],
+      'stream':  [ [12, 22, { 'color': Colors.black, 'strokeWidth': 0.0}],
+      ],
+      'water':  [ [12, 22, { 'color': Colors.black, 'strokeWidth': 0.0}],
+      ],
+      'canal':  [ [15, 22, { 'color': Colors.black, 'strokeWidth': 0.0}],
+      ],
+      'river':  [ [15, 22, { 'color': Colors.black, 'strokeWidth': 0.0}],
+      ],
+      'dock':  [ [15, 22, { 'color': Colors.blueGrey, 'strokeWidth': 0.0}],
+      ],
+    },
+
+    "place_label": {
+      'include': true,
+      'default': [ [0, 22, { 'color': Colors.black, 'strokeWidth': 0.0}],
+      ],
+      'settlement':  [ [0, 22, { 'color': Colors.black, 'strokeWidth': 0.0}],
+      ],
+      'settlement_subdivision':  [ [14, 22, { 'color': Colors.black, 'strokeWidth': 0.0}],
+      ],
+      'park_like':  [ [14, 22, { 'color': Colors.black, 'strokeWidth': 0.0}],
+      ],
+      'types' : {
+        'village':  [ [14, 22, { 'color': Colors.black, 'strokeWidth': 0.0}] ], //15
+        'suburb':   [ [14, 22, { 'color': Colors.black, 'strokeWidth': 0.0}] ], //15
+        'hamlet':   [ [14, 22, { 'color': Colors.black, 'strokeWidth': 0.0}] ], //15
+        'city':     [ [6, 22, { 'color': Colors.black, 'strokeWidth': 0.0}] ], //6
+        'town':     [ [10, 22, { 'color': Colors.black, 'strokeWidth': 0.0}] ], //12
+      }
+    },
+
+    "airport_label": {
+      'include': true,
+      'default': [ [0, 22, { 'color': Colors.black, 'strokeWidth': 2}],
+      ],
+    },
+
+    "housenum_label": {
+      'include': true,
+      'default': [ [17, 22, { 'color': Colors.black, 'strokeWidth': 2}],
+      ],
+    },
+
+    "mountain_peak_label": {
+      'include': true,
+      'default': [ [16, 22, { 'color': Colors.black, 'strokeWidth': 2}],
+      ],
+    },
+
+    "state_label": {
+      'include': true,
+      'default': [ [13, 22, { 'color': Colors.black, 'strokeWidth': 2}],
+      ],
+    },
+
+    "marine_label": {
+      'include': true,
+      'default': [ [0, 22, { 'color': Colors.black, 'strokeWidth': 2}],
+      ],
+    },
+
+    "country_label": {
+      'include': true,
+      'default': [ [0, 22, { 'color': Colors.black, 'strokeWidth': 2}],
+      ],
+    },
+
+    /*
+      ///traffic mapbox
+      'traffic': {
+        'include': true,
+        'default': { 'color': Colors.blueGrey, 'min': 15, 'max': 21},
+        'primary': { 'color': Colors.blue, 'min': 15, 'max': 21},
+        'secondary': { 'color': Colors.blue, 'min': 15, 'max': 21},
+        'tertiary': { 'color': Colors.grey, 'min': 15, 'max': 21},
+        'street': { 'color': Colors.grey, 'min': 15, 'max': 21},
+      },
+      ///mapbox terrain
+      'contour': {
+        'include': false,
+        'default': { 'color': Colors.grey, 'min': 0, 'max': 21},
+      },
+      'hillshade': {
+        'include': false,
+        'default': { 'color': Colors.grey, 'min': 0, 'max': 21 },
+        'shadow': { 'color': Colors.grey, 'min': 0, 'max': 21 },
+      },
+      ///tegola   https://tegola.io/styles/hot-osm.json
+     'buildings': {
+        'include': false,
+        'default': { 'color': Colors.grey , 'min': 0, 'max': 21},
+      },
+      'land': {
+        'include': false,
+        'default': { 'color': Colors.green , 'min': 0, 'max': 21},
+      },
+      'landuse_areas' : {
+        'include': false,
+        'default': { 'color': Colors.green.shade400, 'min': 0, 'max': 21},
+        'leisure': { 'color': Colors.green , 'min': 0, 'max': 21},
+      },
+      'landcover': {
+        'include': false,
+        'default': { 'color': Colors.green.shade50, 'min': 0, 'max': 21},
+        'grass': { 'color': Colors.green, 'min': 0, 'max': 21},
+        'crop': { 'color': Colors.green.shade700, 'min': 0, 'max': 21},
+      },
+      'hillshade': {
+        'include': false,
+        'default': { 'color': Colors.green.shade100, 'min': 0, 'max': 21},
+        'shadow': { 'color': Colors.grey, 'min': 0, 'max': 21},
+      },
+      'transport_lines': {
+        'include': true,
+        'default': { 'color': Colors.grey, 'min': 0, 'max': 21},
+      },
+     'amenity_points' : {
+        'include': true,
+        'default': { 'color': Colors.grey, 'min': 0, 'max': 21},
+      },
+      */
+
+
+  };
+
+}
+
+
 
