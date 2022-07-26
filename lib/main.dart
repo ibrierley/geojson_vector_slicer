@@ -1,4 +1,5 @@
 //import 'package:flutter/cupertino.dart';
+import 'package:fixnum/fixnum.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:geojson_vt_dart/bak/tile.dart';
@@ -18,6 +19,7 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'vector_tile.pb.dart' as vector_tile;
+import 'vector_tile.pbenum.dart';
 import 'package:tuple/tuple.dart';
 //import 'package:flutter_map/src/layer/tile_layer/coords.dart';
 
@@ -149,7 +151,7 @@ class _MyHomePageState extends State<MyHomePage> {
               ],
 
             children: <Widget>[
-
+/*
               TileLayerWidget(
 
                 options: TileLayerOptions(
@@ -168,6 +170,8 @@ class _MyHomePageState extends State<MyHomePage> {
                     subdomains: ['a', 'b', 'c']),
               ),
 
+
+ */
 
                 VectorTileWidgetStream(size: 256.0, index: vectorTileIndex),
 
@@ -655,7 +659,7 @@ class FeatureVectorPainter extends CustomPainter with ChangeNotifier {
 
 
         var path = dartui.Path()
-                    ..fillType = dartui.PathFillType.evenOdd;;
+                    ..fillType = dartui.PathFillType.evenOdd;
         for( var ring in feature.geometry ) {
 
           List<Offset> offsets = [];
@@ -892,8 +896,9 @@ class ProcessedFeature {
   Map? tags;
   Offset? point;
   dartui.Path? path;
+  List<Offset> polyOffsets = [];
 
-  ProcessedFeature({this.type = FeatureType.Point, this.tags = const {}, this.path, this.point});
+  ProcessedFeature({this.type = FeatureType.Point, this.tags = const {}, this.path, this.point, this.polyOffsets = const []});
 
 }
 
@@ -910,7 +915,7 @@ class _VectorTileWidgetState extends State<VectorTileWidget> {
   Widget build(BuildContext context) {
 
     var vectorTileIndex = widget.index;
-    var width = MediaQuery.of(context).size.width * 2.0;
+    var width = MediaQuery.of(context).size.width;
     var height = MediaQuery.of(context).size.height;
     var dimensions = Offset(width,height);
 
@@ -969,7 +974,7 @@ class _VectorTileWidgetState extends State<VectorTileWidget> {
     return SizedBox(
         width: width*1.25, /// calculate this properly depending on rotation and mobile orientation
         height: height*1.25,
-        child: Stack(children: stack)
+        child: Stack(children: stack),
     );
 
   }
@@ -1026,10 +1031,10 @@ class _VectorTileWidgetState extends State<VectorTileWidget> {
                 featureInfo[layer.keys[feature.tags[tagIndex]]] = val;
               }
               var tags = featureInfo;
-
+List<Offset> polyOffsets = [];
               List<Offset> polyPoints = [];
 
-              var type = feature.type.toString();
+              var tileGeomType = feature.type;
 
               FeatureType featureType = FeatureType.LineString;
 
@@ -1054,42 +1059,15 @@ class _VectorTileWidgetState extends State<VectorTileWidget> {
                     reps = 0;
 
                     path ??= dartui.Path();
-                    if(type == "POLYGON") {
+                    if(tileGeomType == Tile_GeomType.POLYGON) {
                       path.addPolygon(polyPoints, true);
                       featureType = FeatureType.Polygon;
                     } else {
                       path.addPolygon(polyPoints, false);
                       featureType = FeatureType.LineString;
                     }
+           ///polyOffsets = polyPoints;
                     polyPoints = [];
-                    /*
-
-                    if(type == "POLYGON") {
-                      if(path == null) {
-                        path ??= dartui.Path();
-                      } else {
-                        path.addPolygon(polyPoints, true);
-                      }
-                      polyPoints = [];
-                      featureType = FeatureType.Polygon;
-                    } else {
-                      if(path == null) {
-                        path ??= dartui.Path();
-                      } else {
-                        path.addPolygon(polyPoints, false);
-                      }
-                      polyPoints = [];
-                      featureType = FeatureType.LineString;
-                      //path?.close();
-                    }
-
-                     */
-
-                    ///var closed = featureType == FeatureType.Polygon ? true : false;
-                    ///if( path != null ) path.addPolygon(polyPoints, closed);
-
-                    ///polyPoints = [];
-
                   } else {
                     print("Shouldn't have got here, some command unknown");
                   }
@@ -1106,10 +1084,11 @@ class _VectorTileWidgetState extends State<VectorTileWidget> {
                     ncy = (cy.toDouble() / 16);
                   }
 
-                  var type = feature.type.toString();
+                  ///var type = feature.type.toString();
                   if (command == 'C') { // CLOSE
                     if(path != null) {
                       print("IS THIS EVER USED ? IF SO< CLOSE MAY BE WRONG>>>>>");
+     ///polyOffsets = polyPoints;
                       path.addPolygon(polyPoints, false); /// ////////////////// true/false if used
                     }
                     polyPoints = [];
@@ -1117,25 +1096,29 @@ class _VectorTileWidgetState extends State<VectorTileWidget> {
                   } else if (command == 'M') { // MOVETO
                     //if (type == 'POLYGON') {
                     path ??= dartui.Path();
-                    if (type == "POLYGON") {
+                    if (tileGeomType == Tile_GeomType.POLYGON) {
                       if(polyPoints.isNotEmpty) {
                         path.addPolygon(polyPoints, true);
                       }
+      ///polyOffsets = polyPoints;
+      polyOffsets.add(Offset(ncx!, ncy!))  ;
                       polyPoints = [];
-                      polyPoints.add(Offset(ncx!, ncy!));
+                      polyPoints.add(Offset(ncx, ncy));
 
                       featureType = FeatureType.Polygon;
 
-                    } else if (type == "LINESTRING") {
+                    } else if (tileGeomType == Tile_GeomType.LINESTRING) {
 
                       if(polyPoints.isNotEmpty) {
                         path.addPolygon(polyPoints, false);
                       }
+       ///polyOffsets = polyPoints;
+       polyOffsets.add(Offset(ncx!, ncy!))  ;
                       polyPoints = [];
-                      polyPoints.add(Offset(ncx!, ncy!));
+                      polyPoints.add(Offset(ncx, ncy));
                       featureType = FeatureType.LineString;
 
-                    } else if (type == "POINT") {
+                    } else if (tileGeomType == Tile_GeomType.POINT) {
 
                       point = Offset(ncx!, ncy!);
                       pointList.add(point);
@@ -1160,14 +1143,19 @@ class _VectorTileWidgetState extends State<VectorTileWidget> {
 
                   } else if (command == 'L') { // LINETO
 
-                    if (type == "POLYGON") {
-
-                      polyPoints.add(Offset(ncx!, ncy!));
+                    if (tileGeomType == Tile_GeomType.POLYGON) {
+polyOffsets.add(Offset(ncx!, ncy!));
+                      polyPoints.add(Offset(ncx, ncy));
 
                       featureType = FeatureType.Polygon;
 
-                    } else if (type == "LINESTRING") {
-                      polyPoints.add(Offset(ncx!, ncy!));
+                    } else if (tileGeomType == Tile_GeomType.LINESTRING) {
+
+
+                      polyOffsets.add(Offset(ncx!, ncy!));
+
+
+                      polyPoints.add(Offset(ncx, ncy));
                       featureType = FeatureType.LineString;
                     }
                   } else {
@@ -1182,7 +1170,7 @@ class _VectorTileWidgetState extends State<VectorTileWidget> {
               if(polyPoints.isNotEmpty) {
                 path ??= dartui.Path();
 
-                if(type == "POLYGON") {
+                if(tileGeomType == Tile_GeomType.POLYGON) {
                   path.addPolygon(polyPoints, true);
                 } else {
                   path.addPolygon(polyPoints, false);
@@ -1190,7 +1178,8 @@ class _VectorTileWidgetState extends State<VectorTileWidget> {
               }
 
               if(featureType == FeatureType.Polygon || featureType == FeatureType.LineString) {
-                tileFeatureList.add(ProcessedFeature(type: featureType, tags: featureInfo, path: path));
+                tileFeatureList.add(ProcessedFeature(type: featureType, tags: featureInfo, path: path, polyOffsets: polyOffsets));
+    polyOffsets = [];
               } else {
                 tileFeatureList.add(ProcessedFeature(type: featureType, tags: featureInfo, point: point));
               }
@@ -1219,7 +1208,6 @@ class FeatureVectorTilePainter extends CustomPainter with ChangeNotifier {
   final GeoJSONOptions options;
   final List<VectorLayer> layers;
   MapState mapState;
-  //Matrix4 matrix;
   PositionInfo pos;
   Paint? singleStyle;
 
@@ -1228,7 +1216,7 @@ class FeatureVectorTilePainter extends CustomPainter with ChangeNotifier {
 
   @override
   void paint(Canvas canvas, Size size) {
-    Rect myRect = const Offset(0,0) & const Size(256.5,256.5); // hmm some other rounding errer gone astray, shouldn't need this .5...
+    Rect myRect = const Offset(0,0) & const Size(257,257); // hmm some other rounding errer gone astray, shouldn't need this .5...
     canvas.clipRect(myRect);
     draw(layers, pos, canvas, mapState.zoom, options);
   }
@@ -1256,7 +1244,6 @@ class FeatureVectorTilePainter extends CustomPainter with ChangeNotifier {
         var type = feature.type;
         lastType ??= type;
         var tags = feature.tags;
-
 
         Paint featurePaint = Styles.getPaint(feature, null, options);
 
@@ -1288,8 +1275,10 @@ class FeatureVectorTilePainter extends CustomPainter with ChangeNotifier {
             paint.style = PaintingStyle.stroke;
           }
 
-          if (false && options.featuresHaveSameStyle && type == lastType) {
-            print("superpath");
+          paint.isAntiAlias = false;
+
+          if (options.featuresHaveSameStyle && type == lastType && lastType == FeatureType.Polygon) {
+            ///print("superpath");
             superPath.addPath(feature.path!, const Offset(0, 0));
           } else {
             ///if(layerName == "building"  || layerName == "road") {
@@ -1304,8 +1293,14 @@ class FeatureVectorTilePainter extends CustomPainter with ChangeNotifier {
               if( VectorLayerStyles.includeFeature(VectorLayerStyles.mapBoxClassColorStyles,
                   layerName, type, tags, zoom) ) {
                 ///if (tags['type'] == 'residential') {
+                if(feature.type == FeatureType.LineString) {
+                  ///print("linestring ${feature.polyOffsets}");
                   canvas.drawPath(feature.path!, paint);
-                ///}
+                  ///canvas.drawPoints(
+                  ///    dartui.PointMode.polygon, feature.polyOffsets, paint);
+                } else {
+                  canvas.drawPath(feature.path!, paint);
+                }
               }
             ///}
           }
@@ -1314,16 +1309,23 @@ class FeatureVectorTilePainter extends CustomPainter with ChangeNotifier {
 
           // We may get a mixed polgon followed by a point or line, so we want to
           // draw now to preserve order, but if all the same style may as well batch
-          if ((count < features.length - 1 &&
+
+
+          if (feature.type == FeatureType.Polygon && (count < features.length - 1 &&
               (features[count + 1].type != type)) ||
               (count == features.length - 1)) {
             //print("drawing superpath");
             if( VectorLayerStyles.includeFeature(VectorLayerStyles.mapBoxClassColorStyles, layerName, type,
                 tags, zoom) ) {
+              ///print("superpath");
             canvas.drawPath(superPath, paint);
             superPath = dartui.Path();
             }
           }
+
+
+
+
         }
       }
     }
@@ -1465,7 +1467,6 @@ class VectorLayerStyles {
             var styleOptions = funcCheck(entry[2], paramsMap);
 
             if (tileZoom >= minZoom && tileZoom <= maxZoom && styleOptions is Map) {
-
               if (styleOptions.containsKey('color'))
                 paint.color = funcCheck(styleOptions['color'], paramsMap);
               if (styleOptions.containsKey('strokeWidth'))
@@ -1531,56 +1532,71 @@ class VectorLayerStyles {
     ///hairline = switch to a hairline width of 0 for optimisation at low zoom levels where we dont care
     "road": {
       'include': true,
-      'default':      [ [0, 22, { 'color': Colors.orange, 'strokeWidth' : 0.0  }     ],
+      'default':      [
+        [0, 22, { 'color': Colors.orange, 'strokeWidth' : 0.0  }     ],
         [16,22, { 'color': Colors.orange, 'strokeWidth' : 2.0 }     ],
       ],
-      'service':      [ [12, 22, { 'color': Colors.blueGrey.shade600, 'strokeWidth' : 0.0  }     ],
+      'service':      [
+        [12, 22, { 'color': Colors.blueGrey.shade600, 'strokeWidth' : 0.0  }     ],
         [17,22, { 'color': Colors.blueGrey.shade300, 'strokeWidth' : 8.0 }     ],
       ],
-      'street':       [ [15, 22, { 'color': Colors.blueGrey.shade600, 'strokeWidth' : 0.0  }     ],
+      'street':       [
+        [15, 22, { 'color': Colors.blueGrey.shade600, 'strokeWidth' : 0.0  }     ],
         [17,22, { 'color': Colors.blueGrey.shade300, 'strokeWidth' : 8.0 }     ],
       ],
-      'pedestrian':   [ [15, 22, { 'color': Colors.blueGrey.shade600, 'strokeWidth' : 0.0  }     ],
+      'pedestrian':   [
+        [15, 22, { 'color': Colors.blueGrey.shade600, 'strokeWidth' : 0.0  }     ],
         [17,22, { 'color': Colors.blueGrey.shade300, 'strokeWidth' : 8.0 }     ],
       ],
       'street_limited':[[15, 22, { 'color': Colors.blueGrey.shade600, 'strokeWidth' : 0.0  }     ],
         [17,22, { 'color': Colors.blueGrey.shade300, 'strokeWidth' : 8.0 }     ],
       ],
-      'motorway':     [ [0, 11, { 'color': Colors.orange,           'strokeWidth' : 0.0  }     ],
-        [12,5, { 'color': Colors.orange.shade200, 'strokeWidth' : 3.0 }     ],
+      'motorway':     [
+        [0, 11, { 'color': Colors.orange,          'strokeWidth' : 0.0 }     ],
+        [11,14, { 'color': Colors.orange.shade200, 'strokeWidth' : 3.0 }     ],
         [14,22, { 'color': Colors.orange.shade100, 'strokeWidth' : 8.0 }     ],
       ],
-      'motorway_link':  [ [0, 11, { 'color': Colors.orange,        'strokeWidth' : 0.0  }     ],
-        [12,15, { 'color': Colors.orange.shade200, 'strokeWidth' : 3.0 }     ],
-        [14,22, { 'color': Colors.orange.shade100, 'strokeWidth' : 8.0 }     ],
+      'motorway_link':  [
+        [0, 11, { 'color': Colors.orange,          'strokeWidth' : 0.0 }     ],
+        [11,13, { 'color': Colors.orange.shade200, 'strokeWidth' : 3.0 }     ],
+        [13,22, { 'color': Colors.orange.shade100, 'strokeWidth' : 8.0 }     ],
       ],
-      'trunk':        [ [0, 11, { 'color': Colors.orangeAccent,    'strokeWidth' : 0.0  }     ],
-        [12,15, { 'color': Colors.orange.shade200, 'strokeWidth' : 3.0 }     ],
-        [17,22, { 'color': Colors.orange.shade100, 'strokeWidth' : 8.0 }     ],
+      'trunk':        [
+        [0, 11, { 'color': Colors.orangeAccent,    'strokeWidth' : 0.0  }     ],
+        [11,16, { 'color': Colors.orange.shade200, 'strokeWidth' : 3.0 }     ],
+        [16,22, { 'color': Colors.orange.shade100, 'strokeWidth' : 8.0 }     ],
       ],
-      'trunk_link':    [[0, 11, { 'color': Colors.orangeAccent,     'strokeWidth' : 0.0  }     ],
+      'trunk_link':    [
+        [0, 12, { 'color': Colors.orangeAccent,     'strokeWidth' : 0.0  }   ],
         [12,16, { 'color': Colors.orange.shade100, 'strokeWidth' : 3.0 }     ],
-        [17,22, { 'color': Colors.orange.shade100, 'strokeWidth' : 8.0 }     ],
+        [16,22, { 'color': Colors.orange.shade100, 'strokeWidth' : 8.0 }     ],
       ],
-      'primary':     [  [11, 16, { 'color': Colors.blueGrey.shade300, 'strokeWidth' : 0.0  }     ],
+      'primary':     [
+        [11, 17, { 'color': Colors.blueGrey.shade300, 'strokeWidth' : 0.0  }     ],
         [17,22, { 'color': Colors.blueGrey.shade300, 'strokeWidth' : 8.0 }     ],
       ],
-      'primary_link': [ [11, 16, { 'color': Colors.blueGrey.shade400, 'strokeWidth' : 0.0  }     ],
+      'primary_link': [
+        [11,17, { 'color': Colors.blueGrey.shade400, 'strokeWidth' : 0.0  }     ],
         [17,22, { 'color': Colors.blueGrey.shade300, 'strokeWidth' : 8.0 }     ],
       ],
-      'secondary':   [  [11, 16, { 'color': Colors.blueGrey.shade400, 'strokeWidth' : 0.0  }     ],
+      'secondary':   [
+        [11,17, { 'color': Colors.blueGrey.shade400, 'strokeWidth' : 0.0  }     ],
         [17,22, { 'color': Colors.blueGrey.shade300, 'strokeWidth' : 8.0 }     ],
       ],
-      'secondary_link':[[11, 16, { 'color': Colors.blueGrey.shade400, 'strokeWidth' : 0.0  }     ],
+      'secondary_link':[
+        [11, 17, { 'color': Colors.blueGrey.shade400, 'strokeWidth' : 0.0  }     ],
         [17,22, { 'color': Colors.blueGrey.shade300, 'strokeWidth' : 8.0 }     ],
       ],
-      'tertiary':     [ [14, 16, { 'color': Colors.blueGrey.shade400, 'strokeWidth' : 0.0  }     ],
+      'tertiary':     [
+        [14,17, { 'color': Colors.blueGrey.shade400, 'strokeWidth' : 0.0  }     ],
         [17,22, { 'color': Colors.blueGrey.shade300, 'strokeWidth' : 8.0 }     ],
       ],
-      'tertiary_link': [[14, 22, { 'color': Colors.blueGrey.shade400, 'strokeWidth' : 0.0  }   ],
+      'tertiary_link': [
+        [14,22, { 'color': Colors.blueGrey.shade400, 'strokeWidth' : 0.0  }   ],
         [17,22, { 'color': Colors.blueGrey.shade300, 'strokeWidth' : 8.0 }     ],
       ],
-      'residential':  [ [14, 15, { 'color': Colors.blueGrey.shade600, 'strokeWidth' : 0.0  }     ],
+      'residential':  [
+        [14,16, { 'color': Colors.blueGrey.shade600, 'strokeWidth' : 0.0  }   ],
         [16,22, { 'color': Colors.blueGrey.shade300, 'strokeWidth' : 5.0 }     ],
         [17,22, { 'color': Colors.blueGrey.shade300, 'strokeWidth' : 7.0 }     ],
       ],
