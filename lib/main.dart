@@ -82,10 +82,10 @@ class _MyHomePageState extends State<MyHomePage> {
       //var geoPointMap = TestData().getSamplePointGeoJSON(100);
       //geoJsonIndex = await geoJSON.createIndex(null, tileSize: tileSize, geoJsonMap: geoPointMap);
       //geoJsonIndex = await geoJSON.createIndex('assets/test.json', tileSize: 256);
-      //geoJsonIndex = await geoJSON.createIndex('assets/US_County_Boundaries.json', tileSize: tileSize);
+      geoJsonIndex = await geoJSON.createIndex('assets/US_County_Boundaries.json', tileSize: tileSize);
       //geoJsonIndex = await geoJSON.createIndex('assets/polygon_hole.json', tileSize: 256);
       //geoJsonIndex = await geoJSON.createIndex('assets/general.json', tileSize: 256);
-      geoJsonIndex = await geoJSON.createIndex('assets/uk.json', tileSize: 256);
+      //geoJsonIndex = await geoJSON.createIndex('assets/uk.json', tileSize: 256);
       //geoJsonIndex = await geoJSON.createIndex('assets/earthquake.geojson', tileSize: 256);
       setState(() {
       });
@@ -103,7 +103,8 @@ class _MyHomePageState extends State<MyHomePage> {
           FlutterMap(
             mapController: mapController,
             options: MapOptions(
-              allowPanningOnScrollingParent: false,
+              //allowPanningOnScrollingParent: false,
+              absorbPanEventsOnScrollables: false,
               onTap: (tapPosition, point) {
 
                 var pt = const Epsg3857().latLngToPoint(point, 14);
@@ -136,25 +137,11 @@ class _MyHomePageState extends State<MyHomePage> {
               minZoom: 0.0,
               //interactiveFlags: InteractiveFlag.all & ~InteractiveFlag.rotate
             ),
-              layers: [
-                MarkerLayerOptions(
-                  markers: [
-                    Marker(
-                      width: 80.0,
-                      height: 80.0,
-                      point: LatLng(51.5, -0.09),
-                      builder: (ctx) =>
-                      const FlutterLogo(),
-                    ),
-                  ],
-                ),
-              ],
+              children: [
 
-            children: <Widget>[
+              TileLayer(
 
-              TileLayerWidget(
-
-                options: TileLayerOptions(
+               // options: TileLayer(
         //'https://maps.dabbles.info/index.php?x={x}&y={y}&z={z}&r=osm',
         //FqtZvgMGhQB-2AqzcvlpYznhg38kCt-bBx1OtvU7wLE
         //urlTemplate: "https://atlas.microsoft.com/map/tile/png?api-version=1&layer=basic&style=main&tileSize=256&view=Auto&zoom={z}&x={x}&y={y}&subscription-key=FqtZvgMGhQB-2AqzcvlpYznhg38kCt-bBx1OtvU7wLE",
@@ -167,7 +154,7 @@ class _MyHomePageState extends State<MyHomePage> {
                    */
 
                     urlTemplate: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                    subdomains: ['a', 'b', 'c']),
+                    subdomains: ['a', 'b', 'c'],
               ),
 
 
@@ -221,10 +208,10 @@ class _MyHomePageState extends State<MyHomePage> {
                   ),
                 ),
 
+])
 
 
-
-            ]),
+            //]),
     ]);
   }
 }
@@ -308,7 +295,7 @@ class GeoJSON {
   }
 
   // experimental, not sure this still works. rework to use with canvas, not widgets ???
-  Widget getClusters(MapState mapState, index, stream, markerFunc, CustomPoint size) {
+  Widget getClusters(FlutterMapState mapState, index, stream, markerFunc, CustomPoint size) {
 
     List<Positioned> markers = [];
 
@@ -386,7 +373,7 @@ class GeoJSON {
     return Stack(children: markers);
   }
 
-  Widget getClustersOnTile(tile, index, matrix, MapState mapState, size, clusterFunc, markerWidgetFunc) {
+  Widget getClustersOnTile(tile, index, matrix, FlutterMapState mapState, size, clusterFunc, markerWidgetFunc) {
 
     List<Positioned> markers = [];
 
@@ -484,16 +471,17 @@ class _GeoJSONWidgetState extends State<GeoJSONWidget> {
   @override
   Widget build(BuildContext context) {
 
-    final mapState = MapState.maybeOf(context)!;
+    final mapState = FlutterMapState.maybeOf(context)!;
 
     Map<String,Widget> lastTileWidgets = {};
     Map<String,Widget> currentTileWidgets = {};
 
     CustomPoint size = const CustomPoint(256,256);
 
-    return StreamBuilder<void>(
-        stream: mapState.onMoved,
-        builder: (BuildContext context, _) {
+
+    //return StreamBuilder<void>(
+    //    stream: mapState.onMoved,
+    //    builder: (BuildContext context, _) {
 
           //var clusters = GeoJSON().getClusters(mapState, widget.index, null, null, size);
           List<Widget> clusters = [];
@@ -587,8 +575,8 @@ class _GeoJSONWidgetState extends State<GeoJSONWidget> {
             Stack(children: clusters),
           ]);
         }
-    );
-  }
+    //);
+  //}
 }
 
 class GeoJSONOptions {
@@ -614,7 +602,7 @@ class FeatureVectorPainter extends CustomPainter with ChangeNotifier {
   final Stream<Null>? stream;
   final GeoJSONOptions options;
   final List features;
-  MapState mapState;
+  FlutterMapState mapState;
   Matrix4 matrix;
   PositionInfo pos;
   Paint? singleStyle;
@@ -850,13 +838,16 @@ class VectorTileWidgetStream extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
 
-    var mapState = MapState.maybeOf(context)!;
-    return StreamBuilder(
+    var mapState = FlutterMapState.maybeOf(context)!;
+    return VectorTileWidget(size: 256.0, index: index);
+    /*return StreamBuilder(
       stream: mapState.onMoved,
       builder: (context, AsyncSnapshot snapshot) {
           return VectorTileWidget(size: 256.0, index: index);
       }
     );
+
+     */
   }
 }
 
@@ -924,7 +915,7 @@ class _VectorTileWidgetState extends State<VectorTileWidget> {
     var height = MediaQuery.of(context).size.height;
     var dimensions = Offset(width,height);
 
-    var mapState = MapState.maybeOf(context)!;
+    var mapState = FlutterMapState.maybeOf(context)!;
 
     var tileState = TileState(mapState, CustomPoint(widget.size, widget.size));
 
@@ -984,7 +975,7 @@ class _VectorTileWidgetState extends State<VectorTileWidget> {
 
   }
 
-  Future<void> fetchData(coords, VectorTileIndex? vectorTileIndex, MapState mapState) async {
+  Future<void> fetchData(coords, VectorTileIndex? vectorTileIndex, FlutterMapState mapState) async {
 
     String tileCoordsKey = tileCoordsToKey(coords);
     String url;
@@ -992,7 +983,7 @@ class _VectorTileWidgetState extends State<VectorTileWidget> {
     if(isValidTile(coords, mapState)) {
       try {
         url = NetworkNoRetryTileProvider().getTileUrl(coords,
-          TileLayerOptions(
+          TileLayer(
               urlTemplate: 'https://api.mapbox.com/v4/mapbox.mapbox-streets-v8/{z}/{x}/{y}.mvt?mapbox://styles/gibble/ckoe1dv003l7s17pb219opzj0&access_token=pk.eyJ1IjoiZ2liYmxlIiwiYSI6ImNqbjBlZDB6ejFrODcza3Fsa3o3eXR1MzkifQ.pC89zLnuSWrRdCkDrsmynQ',
               subdomains: ['a', 'b', 'c']),
         );
@@ -1212,7 +1203,7 @@ class FeatureVectorTilePainter extends CustomPainter with ChangeNotifier {
   //final Stream<Null>? stream;
   final GeoJSONOptions options;
   final List<VectorLayer> layers;
-  MapState mapState;
+  FlutterMapState mapState;
   PositionInfo pos;
   Paint? singleStyle;
 
@@ -1356,7 +1347,7 @@ String tileCoordsToKey(Coords coords) {
   return '${coords.x}:${coords.y}:${coords.z}';
 }
 
-bool isValidTile(Coords coords, MapState mapState) {
+bool isValidTile(Coords coords, FlutterMapState mapState) {
   final crs = mapState.options.crs;
 
   if (!crs.infinite) {
