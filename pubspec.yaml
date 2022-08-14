@@ -29,16 +29,24 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-
-  flutter_map: ^0.14.0
+  #flutter_map: ^1.1.1
+  flutter_map: ^2.0.0
   tile_state:
-    git:
-      url: https://github.com/ibrierley/flutter_map_tile_state.git
+    path: ../flutter_map_tile_state/
+    #git:
+    #  url: https://github.com/ibrierley/flutter_map_tile_state.git
   geojson_vt_dart:
-    git:
-      url: https://github.com/ibrierley/geojson-vt-dart
-  latlong2: any
+        path: ../geojson-vt-dart/
+          #git:
+          #url: https://github.com/ibrierley/geojson-vt-dart
 
+  latlong2: any
+  flutter_cache_manager: any
+  ##fixnum: any
+  ##fixnum: '>=0.10.9 <0.11.0'
+  fixnum: ^1.0.0
+  protobuf: ^2.1.0
+  ##vector_tile: any
 
 
   # The following adds the Cupertino Icons font to your application.

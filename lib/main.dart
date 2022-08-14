@@ -81,11 +81,11 @@ class _MyHomePageState extends State<MyHomePage> {
 
       //var geoPointMap = TestData().getSamplePointGeoJSON(100);
       //geoJsonIndex = await geoJSON.createIndex(null, tileSize: tileSize, geoJsonMap: geoPointMap);
-
-      geoJsonIndex = await geoJSON.createIndex('assets/US_County_Boundaries.json', tileSize: tileSize);
+      //geoJsonIndex = await geoJSON.createIndex('assets/test.json', tileSize: 256);
+      //geoJsonIndex = await geoJSON.createIndex('assets/US_County_Boundaries.json', tileSize: tileSize);
       //geoJsonIndex = await geoJSON.createIndex('assets/polygon_hole.json', tileSize: 256);
       //geoJsonIndex = await geoJSON.createIndex('assets/general.json', tileSize: 256);
-      //geoJsonIndex = await geoJSON.createIndex('assets/uk.json', tileSize: 256);
+      geoJsonIndex = await geoJSON.createIndex('assets/uk.json', tileSize: 256);
       //geoJsonIndex = await geoJSON.createIndex('assets/earthquake.geojson', tileSize: 256);
       setState(() {
       });
@@ -131,7 +131,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 },
              /// center: LatLng(-2.219988165689301, 56.870017401753529),
               center: LatLng(50.8344903, -0.186486 ),
-              zoom: 16.6,
+              zoom: 2, //16.6,
               maxZoom: 17.0,
               minZoom: 0.0,
               //interactiveFlags: InteractiveFlag.all & ~InteractiveFlag.rotate
@@ -151,7 +151,7 @@ class _MyHomePageState extends State<MyHomePage> {
               ],
 
             children: <Widget>[
-/*
+
               TileLayerWidget(
 
                 options: TileLayerOptions(
@@ -171,11 +171,11 @@ class _MyHomePageState extends State<MyHomePage> {
               ),
 
 
- */
 
-                VectorTileWidgetStream(size: 256.0, index: vectorTileIndex),
 
-                /*
+               /// VectorTileWidgetStream(size: 256.0, index: vectorTileIndex),
+
+
                 GeoJSONWidget(
                   index: geoJsonIndex,
                   options: GeoJSONOptions(
@@ -187,7 +187,7 @@ class _MyHomePageState extends State<MyHomePage> {
                         ..strokeWidth = 5
                         ..isAntiAlias = false;
                       if(feature.type == 3) { // lineString
-                        paint.style = PaintingStyle.fill;
+                        ///paint.style = PaintingStyle.fill;
                       }
                       return paint;
                     },
@@ -202,7 +202,8 @@ class _MyHomePageState extends State<MyHomePage> {
                       }
                     },
                     ///clusterFunc: () { return Text("Cluster"); },
-                    lineStringFunc: () { if(CustomImages.imageLoaded) return CustomImages.plane;},
+                    ///lineStringFunc: () { if(CustomImages.imageLoaded) return CustomImages.plane;},
+                      ///
                     polygonFunc: null,
                     polygonStyle: (feature) {
                       var paint = Paint()
@@ -221,7 +222,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 ),
 
 
-                 */
+
 
             ]),
     ]);
@@ -638,7 +639,7 @@ class FeatureVectorPainter extends CustomPainter with ChangeNotifier {
       FeatureType type = FeatureType.values[feature.type]; // convert geoson-vt 1-3 int to enum
       var tags = feature.tags;
       var hasJsonStyle;
-      //print("${feature.tags}");
+      ///print("type ${type} ${feature.type} feature $feature");
 
       Paint featurePaint = Styles.getPaint(feature, null, options);
 
@@ -673,6 +674,9 @@ class FeatureVectorPainter extends CustomPainter with ChangeNotifier {
         // polygon MUST have fill type whatever
         if(type == FeatureType.Polygon) {
           featurePaint.style = PaintingStyle.fill;
+        } else {
+          featurePaint.style = PaintingStyle.stroke;
+          ///print("got here");
         }
 
         if(options.featuresHaveSameStyle) {
@@ -745,6 +749,8 @@ class Styles {
       type = feature.type;
     }
 
+    //print("feature $feature");
+
 
     featurePaint ??= getDefaultStyle(0);
 
@@ -793,7 +799,6 @@ class Styles {
     return featurePaint;
 
   }
-
 }
 
 class HexColor extends Color {
@@ -1467,10 +1472,13 @@ class VectorLayerStyles {
             var styleOptions = funcCheck(entry[2], paramsMap);
 
             if (tileZoom >= minZoom && tileZoom <= maxZoom && styleOptions is Map) {
-              if (styleOptions.containsKey('color'))
+              if (styleOptions.containsKey('color')) {
                 paint.color = funcCheck(styleOptions['color'], paramsMap);
-              if (styleOptions.containsKey('strokeWidth'))
-                paint.strokeWidth = funcCheck(styleOptions['strokeWidth'], paramsMap);
+              }
+              if (styleOptions.containsKey('strokeWidth')) {
+                paint.strokeWidth =
+                    funcCheck(styleOptions['strokeWidth'], paramsMap);
+              }
             }
           }
         }
