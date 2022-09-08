@@ -171,8 +171,7 @@ class _MyHomePageState extends State<MyHomePage> {
                       }
                     },
                     ///clusterFunc: () { return Text("Cluster"); },
-                    ///lineStringFunc: () { if(CustomImages.imageLoaded) return CustomImages.plane;},
-                      ///
+                    ///lineStringFunc: () { if(CustomImages.imageLoaded) return CustomImages.plane;}
                     polygonFunc: null,
                     polygonStyle: (feature) {
                       var paint = Paint()

@@ -1,5 +1,5 @@
-name: slicer_tile_example
-description: A new Flutter project.
+name: geojson_vector_slicer
+description: A tool for displaying geojson, clustering and vector tiles .
 
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
@@ -15,10 +15,10 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # In iOS, build-name is used as CFBundleShortVersionString while build-number used as CFBundleVersion.
 # Read more about iOS versioning at
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
-version: 1.0.0+1
+version: 0.0.0+1
 
 environment:
-  sdk: ">=2.15.1 <3.0.0"
+  sdk: ">=2.15.1 <=3.3.0"
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
@@ -29,29 +29,12 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  #flutter_map: ^1.1.1
-  flutter_map: ^2.0.0
-  tile_state:
-    path: ../flutter_map_tile_state/
-    #git:
-    #  url: https://github.com/ibrierley/flutter_map_tile_state.git
-  geojson_vt_dart:
-        path: ../geojson-vt-dart/
-          #git:
-          #url: https://github.com/ibrierley/geojson-vt-dart
+  flutter_map: ^3.0.0
 
   latlong2: any
   flutter_cache_manager: any
-  ##fixnum: any
-  ##fixnum: '>=0.10.9 <0.11.0'
   fixnum: ^1.0.0
   protobuf: ^2.1.0
-  ##vector_tile: any
-
-
-  # The following adds the Cupertino Icons font to your application.
-  # Use with the CupertinoIcons class for iOS style icons.
-  cupertino_icons: ^1.0.2
 
 dev_dependencies:
   flutter_test:

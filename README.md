@@ -7,7 +7,11 @@ Slicing based off https://github.com/mapbox/geojson-vt
 
 See the example main.dart, will create specific examples later. 
 
-Main feaures:
+Click on the US map and tap on the states to see which state was tapped (check console)
+Should cluster US state points, and display a plane when no clusters.
+Should display a basic vector map with not much styling.
+
+Main features:
 
 Display GeoJSON by splitting them into tiles. Includes line simplification as an option.
 Polyline/polygon hit detection as well (see example main.dart).
