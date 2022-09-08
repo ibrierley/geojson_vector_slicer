@@ -7,36 +7,33 @@ Slicing based off https://github.com/mapbox/geojson-vt
 ## IMPORTANT! This is an alpha/proof of concept version currently.
 
 
-## Getting Started
+**Getting Started**
 
 See the example main.dart, will create specific examples later. 
 
 
 
-# Main features:
+**Main features:**
 
-Display GeoJSON by splitting them into tiles (tiles are stored in an Index). 
+* Display GeoJSON by splitting them into tiles (tiles are stored in an Index). 
 
-Line simplification on GeoJSON.
+* Line simplification on GeoJSON.
 
-Polyline/polygon tap/hit detection code.
+* Polyline/polygon tap/hit detection code.
 
-Can Display Vector tiles (no mapbox styling works on this or is intended to).
+* Can Display Vector tiles (no mapbox styling works on this or is intended to).
 
-Can cluster markers (basic) based on tiles.
+* Can cluster markers (basic) based on tiles (no spiderfy features).
 
+**How it works**
 
-GeoJsonWidget options
-```
-drawClusters: true to erm draw clusters instead of raw features.
-drawFeatures: true to erm draw the features
-You probably only want one of these enabled, but you can have both enabled for testing.
-featuresHaveSameStyle: true if all geometry has the same color. This may give a performance tweak as we can batch draw calls up
-```
+Tiles belong to an Index we create at first.
 
-Tiles belong to an Index we create at first, and then tiles lower than zoom 3 are created on the fly.
+```geoJsonIndex = await geoJSON.createIndex('assets/ids.json', tileSize: tileSize);```
 
-Tile Index Options
+This creates an index, precalculates zoom 0-2 for performance (higher zooms are calculated on the fly)
+
+**Tile Index Options**
 ```
 {
   'maxZoom': 14,            // max zoom to preserve detail on
@@ -50,6 +47,16 @@ Tile Index Options
   'generateId': false,      // whether to generate feature ids. Cannot be used with promoteId
   'debug': 2                // logging level (0, 1 or 2)
 };
+```
+
+GeoJsonWidget options
+```
+index: Our index we created earlier.
+options: our GeoJSONOptions (see below)
+drawClusters: true to erm draw clusters instead of raw features.
+drawFeatures: true to erm draw the features
+(You probably only want one of these enabled, but you can have both enabled for testing).
+featuresHaveSameStyle: true if all geometry has the same color. This may give a performance tweak as we can batch draw calls up
 ```
 
 
