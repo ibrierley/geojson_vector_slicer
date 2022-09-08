@@ -3,6 +3,8 @@
 A flutter_map plugin to display fast geojson by slicing into tiles.
 Slicing based off https://github.com/mapbox/geojson-vt
 
+THIS IS VERY MUCH AN ALPHA/PROOF OF CONCEPT VERSION
+
 ## Getting Started
 
 See the example main.dart, will create specific examples later. 
