@@ -73,7 +73,8 @@ class _MyHomePageState extends State<MyHomePage> {
       //var geoPointMap = TestData().getSamplePointGeoJSON(100);
       //geoJsonIndex = await geoJSON.createIndex(null, tileSize: tileSize, geoJsonMap: geoPointMap);
       //geoJsonIndex = await geoJSON.createIndex('assets/test.json', tileSize: 256);
-      geoJsonIndex = await geoJSON.createIndex('assets/US_County_Boundaries.json', tileSize: tileSize);
+      //geoJsonIndex = await geoJSON.createIndex('assets/US_County_Boundaries.json', tileSize: tileSize);
+      geoJsonIndex = await geoJSON.createIndex('assets/ids.json', tileSize: tileSize);
       //geoJsonIndex = await geoJSON.createIndex('assets/polygon_hole.json', tileSize: 256);
       //geoJsonIndex = await geoJSON.createIndex('assets/general.json', tileSize: 256);
       //geoJsonIndex = await geoJSON.createIndex('assets/uk.json', tileSize: 256);
@@ -139,13 +140,18 @@ class _MyHomePageState extends State<MyHomePage> {
                     subdomains: ['a', 'b', 'c'],
               ),
 
+                /*
                 VectorTileWidgetStream(size: 256.0, index: vectorTileIndex,
                   options:   const {
-                  'urlTemplate': 'https://api.mapbox.com/v4/mapbox.mapbox-streets-v8/{z}/{x}/{y}.mvt?mapbox://styles/gibble/ckoe1dv003l7s17pb219opzj0&access_token=pk.eyJ1IjoiZ2liYmxlIiwiYSI6ImNqbjBlZDB6ejFrODcza3Fsa3o3eXR1MzkifQ.pC89zLnuSWrRdCkDrsmynQ',
+                  'urlTemplate': '<vector tile server url>',
                   'subdomains': ['a', 'b', 'c']},
                 ),
 
+                 */
+
                 GeoJSONWidget(
+                  drawClusters: true,
+                  drawFeatures: false,
                   index: geoJsonIndex,
                   options: GeoJSONOptions(
                     featuresHaveSameStyle: false,
@@ -188,11 +194,7 @@ class _MyHomePageState extends State<MyHomePage> {
                     }
                   ),
                 ),
-
               ])
-
-
-            //]),
     ]);
   }
 }
