@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:geojson_vector_slicer/geojson/geojson_options.dart';
 import 'dart:ui' as dartui;
 import '../geojson/classes.dart';
 
@@ -37,7 +38,7 @@ class Styles {
     return paint;
   }
 
-  static dartui.Paint getPaint(feature, featurePaint, options) {
+  static dartui.Paint getPaint(feature, featurePaint, GeoJSONOptions options) {
 
     Map<dynamic, dynamic> tags = feature.tags;
     FeatureType type;
@@ -48,6 +49,16 @@ class Styles {
     }
 
     featurePaint ??= getDefaultStyle(0);
+
+    if(options.lineStringStyle != null && type == FeatureType.LineString) {
+      return options.lineStringStyle!(feature);
+    }
+    if(options.polygonStyle != null && type == FeatureType.Polygon) {
+      return options.polygonStyle!(feature);
+    }
+    if(options.pointStyle != null && type == FeatureType.Point) {
+      return options.pointStyle!(feature);
+    }
 
     Map styleTags;
     if(tags.containsKey('style')) {
