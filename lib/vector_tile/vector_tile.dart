@@ -536,6 +536,11 @@ class FeatureVectorPainter extends CustomPainter with ChangeNotifier {
     // Batch paths where possible...
     var superPath = dartui.Path();
 
+    // experimental to remove internal borders
+    canvas.save();
+    var myRect = const Offset(0, 0) & const Size(257.0, 257.0);
+    canvas.clipRect(myRect);
+
     for( var count = 0; count < features.length; count++ ) {
 
       var feature = features[count];
@@ -558,7 +563,6 @@ class FeatureVectorPainter extends CustomPainter with ChangeNotifier {
 
       if(type == FeatureType.LineString || type == FeatureType.Polygon) { // line = 2, poly = 3
 
-
         var path = dartui.Path()
           ..fillType = dartui.PathFillType.evenOdd;
         for( var ring in feature.geometry ) {
@@ -572,11 +576,7 @@ class FeatureVectorPainter extends CustomPainter with ChangeNotifier {
 
         featurePaint.strokeWidth = featurePaint.strokeWidth / pos.scale;
         // polygon MUST have fill type whatever
-        if(type == FeatureType.Polygon) {
-          featurePaint.style = PaintingStyle.fill;
-        } else {
-          featurePaint.style = PaintingStyle.stroke;
-        }
+
 
         if(options.featuresHaveSameStyle) {
           superPath.addPath(path, const Offset(0,0));
@@ -593,6 +593,9 @@ class FeatureVectorPainter extends CustomPainter with ChangeNotifier {
         }
       }
     }
+
+    // experimental remove including top save and clip if nec
+    canvas.restore();
   }
 
   @override

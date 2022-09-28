@@ -102,6 +102,7 @@ class Styles {
       featurePaint.color = featurePaint.color.withOpacity(feature.tags['fill-opacity']);
     }
 
+    print("fp ${featurePaint.style}");
     return featurePaint;
 
   }

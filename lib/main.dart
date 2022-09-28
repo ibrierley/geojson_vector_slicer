@@ -52,7 +52,7 @@ class _MyHomePageState extends State<MyHomePage> {
       _random.nextDouble() * (end - start) + start;
 
   late final MapController mapController;
-  late GeoJSONVT geoJsonIndex = GeoJSONVT({},GeoJSONVTOptions());
+  late GeoJSONVT geoJsonIndex = GeoJSONVT({},GeoJSONVTOptions(buffer: 32));
   var infoText = 'No Info';
   var tileSize = 256.0;
   var tilePointCheckZoom = 14;
@@ -73,8 +73,9 @@ class _MyHomePageState extends State<MyHomePage> {
       //var geoPointMap = TestData().getSamplePointGeoJSON(100);
       //geoJsonIndex = await geoJSON.createIndex(null, tileSize: tileSize, geoJsonMap: geoPointMap);
       //geoJsonIndex = await geoJSON.createIndex('assets/test.json', tileSize: 256);
-      //geoJsonIndex = await geoJSON.createIndex('assets/US_County_Boundaries.json', tileSize: tileSize);
-      geoJsonIndex = await geoJSON.createIndex('assets/ids.json', tileSize: tileSize);
+      geoJsonIndex = await geoJSON.createIndex('assets/US_County_Boundaries.json', tileSize: tileSize);
+      //geoJsonIndex = await geoJSON.createIndex('assets/us_test.json', tileSize: tileSize);
+      //geoJsonIndex = await geoJSON.createIndex('assets/ids.json', tileSize: tileSize);
       //geoJsonIndex = await geoJSON.createIndex('assets/polygon_hole.json', tileSize: 256);
       //geoJsonIndex = await geoJSON.createIndex('assets/general.json', tileSize: 256);
       //geoJsonIndex = await geoJSON.createIndex('assets/uk.json', tileSize: 256);
@@ -105,6 +106,8 @@ class _MyHomePageState extends State<MyHomePage> {
                 var x = (pt.x / tileSize).floor();
                 var y = (pt.y / tileSize).floor();
                 var tile = geoJsonIndex.getTile(mapController.zoom.floor(), x, y);
+                print("$x, $y  $point $pt  tile ${tile!.x} ${tile!.y} ${tile!.z}");
+
 
                 if(tile != null) {
                   for (var feature in tile.features) {
@@ -113,6 +116,7 @@ class _MyHomePageState extends State<MyHomePage> {
                     if (feature.type != 1) {
                       if(geoJSON.isGeoPointInPoly(pt, polygonList, size: tileSize)) {
                          infoText = "${feature.tags['NAME']}, ${feature.tags['NAME']} tapped";
+                         print("$infoText");
                          if(feature.tags.containsKey('NAME')) {
                            featureSelected = "${feature.tags['NAME']}_${feature.tags['COUNTY']}";
                          }
@@ -150,8 +154,8 @@ class _MyHomePageState extends State<MyHomePage> {
                  */
 
                 GeoJSONWidget(
-                  drawClusters: true,
-                  drawFeatures: false,
+                  drawClusters: false,
+                  drawFeatures: true,
                   index: geoJsonIndex,
                   options: GeoJSONOptions(
                     featuresHaveSameStyle: false,
@@ -178,10 +182,17 @@ class _MyHomePageState extends State<MyHomePage> {
                     },
                     ///clusterFunc: () { return Text("Cluster"); },
                     ///lineStringFunc: () { if(CustomImages.imageLoaded) return CustomImages.plane;}
+                      lineStringStyle: (feature) {
+                        return Paint()
+                          ..style = PaintingStyle.stroke
+                          ..color = Colors.red
+                          ..strokeWidth = 2
+                          ..isAntiAlias = true;
+                      },
                     polygonFunc: null,
                     polygonStyle: (feature) {
                       var paint = Paint()
-                        ..style = PaintingStyle.fill
+                        ..style = PaintingStyle.stroke
                         ..color = Colors.red
                         ..strokeWidth = 5
                         ..isAntiAlias = false;
