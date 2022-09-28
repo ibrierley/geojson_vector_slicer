@@ -10,6 +10,7 @@ import 'transform.dart';
 import 'classes.dart';
 import "index.dart";
 import '../tile/tile_state.dart' hide Coords;
+import 'dart:developer' as dev;
 
 
 class GeoJSON {
@@ -37,37 +38,36 @@ class GeoJSON {
     return geoJsonIndex;
   }
 
+
+  // https://stackoverflow.com/questions/22521982/check-if-point-is-inside-a-polygon
   bool isGeoPointInPoly(CustomPoint pt, List polygonList, {size = 256.0}) {
     var x = (pt.x / size).floor();
     var y = (pt.y / size).floor();
 
     int lat = 0;
     int lon = 1;
-    bool isInPoly = false;
 
     num ax = pt.x - size * x;
     num ay = pt.y - size * y;
 
+    var inside = false;
     for (var polygon in polygonList) {
-      for (int i = 0, j = polygon.length - 1; i < polygon.length;
+      for (int i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
 
-      j = i++) {
+        var xi = polygon[i][lat];
+        var yi = polygon[i][lon];
+        var xj = polygon[j][lat];
+        var yj = polygon[j][lon];
 
-        if ((((polygon[i][lat] <= ax) &&
-            (ax < polygon[j][lat])) ||
-            ((polygon[j][lat] <= ax) &&
-                (ax < polygon[i][lat]))) &&
-            (ay <
-                (polygon[j][lon] - polygon[i][lon]) *
-                    (ax - polygon[i][lat]) /
-                    (polygon[j][lat] - polygon[i][lat]) +
-                    polygon[i][lon])) {
-
-          isInPoly = true;
-        }
+        var intersect = ((yi > ay) != (yj > ay))
+            && (ax < (xj - xi) * (ay - yi) / (yj - yi) + xi);
+        if (intersect) inside = !inside;
       }
+
+      if(inside) return true;
     }
-    return isInPoly;
+
+    return inside;
   }
 
   // experimental, not sure this still works. rework to use with canvas, not widgets ???
