@@ -192,7 +192,7 @@ class _MyHomePageState extends State<MyHomePage> {
                     polygonFunc: null,
                     polygonStyle: (feature) {
                       var paint = Paint()
-                        ..style = PaintingStyle.stroke
+                        ..style = PaintingStyle.fill
                         ..color = Colors.red
                         ..strokeWidth = 5
                         ..isAntiAlias = false;

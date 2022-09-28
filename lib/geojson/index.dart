@@ -15,7 +15,7 @@ Map defaultOptions = {
   'indexMaxPoints': 100000, // max number of points per tile in the tile index
   'tolerance': 3,           // simplification tolerance (higher means simpler)
   'extent': 4096,           // tile extent
-  'buffer': 64,             // tile buffer on each side
+  'buffer': 0,             // tile buffer on each side
   'lineMetrics': false,     // whether to calculate line metrics
   'promoteId': null,        // name of a feature property to be promoted to feature.id
   'generateId': false,      // whether to generate feature ids. Cannot be used with promoteId

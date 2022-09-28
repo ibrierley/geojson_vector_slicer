@@ -26,7 +26,7 @@ class GeoJSON {
 
     options ??= GeoJSONVTOptions(
           debug : 0,
-          buffer : 0,
+          buffer : 64,
           maxZoom: 22,
           indexMaxZoom: 22,
           indexMaxPoints: 10000000,

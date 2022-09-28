@@ -94,11 +94,13 @@ class _GeoJSONWidgetState extends State<GeoJSONWidget> {
                     options: widget.options,
                     matrix: matrix,
                     pos: pos);
-                thisTileStack.add(CustomPaint(
+                thisTileStack.add(
+                    CustomPaint(
                     size: const Size(256.0, 256.0),
                     isComplex: true,
                     //Tells flutter to cache the painter, although it probably won't!
-                    painter: painterWidget));
+                    painter: painterWidget)
+                );
               } else {
                 // deferring
               }
