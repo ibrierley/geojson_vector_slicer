@@ -53,6 +53,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
   late final MapController mapController;
   late GeoJSONVT geoJsonIndex = GeoJSONVT({},GeoJSONVTOptions(buffer: 32));
+  late GeoJSONVT? highlightedIndex = GeoJSONVT({},GeoJSONVTOptions(buffer: 32));
   var infoText = 'No Info';
   var tileSize = 256.0;
   var tilePointCheckZoom = 14;
@@ -98,7 +99,7 @@ class _MyHomePageState extends State<MyHomePage> {
             options: MapOptions(
               //allowPanningOnScrollingParent: false,
               absorbPanEventsOnScrollables: false,
-              onTap: (tapPosition, point) {
+              onTap: (tapPosition, point) async {
                 featureSelected = null;
                 // figure which tile we're on, then grab that tiles features to loop through
                 // to find which feature the tap was on. Zoom 14 is kinda arbitrary here
@@ -118,6 +119,9 @@ class _MyHomePageState extends State<MyHomePage> {
                          infoText = "${feature.tags['NAME']}, ${feature.tags['COUNTY']} tapped";
                          print("$infoText");
                          print("source IS ${feature.tags['source']}");
+
+                         highlightedIndex = await GeoJSON().createIndex(null,geoJsonMap: feature.tags['source'], tolerance: 0);
+
                          if(feature.tags.containsKey('NAME')) {
                            featureSelected = "${feature.tags['NAME']}_${feature.tags['COUNTY']}";
                          }
@@ -196,15 +200,44 @@ class _MyHomePageState extends State<MyHomePage> {
                         ..style = PaintingStyle.fill
                         ..color = Colors.red
                         ..strokeWidth = 5
-                        ..isAntiAlias = false;
+                        ..isAntiAlias = true;
 
                       if(feature.tags != null && "${feature.tags['NAME']}_${feature.tags['COUNTY']}" == featureSelected) {
+                        paint.strokeWidth = 15;
                         return paint;
                       }
                       paint.color = Colors.lightBlueAccent;
+                      paint.isAntiAlias = false;
                       return paint;
                     }
                   ),
+                ),
+                GeoJSONWidget(
+                  index: highlightedIndex,
+                  drawFeatures: true,
+                  options: GeoJSONOptions(
+                  polygonStyle: (feature) {
+                    return Paint()
+                      ..style = PaintingStyle.stroke
+                      ..color = Colors.yellow
+                      ..strokeWidth = 8
+                      ..isAntiAlias = true;
+                  }
+                  ),
+                ),
+                GeoJSONWidget(
+                  index: highlightedIndex,
+                  drawFeatures: true,
+                  options: GeoJSONOptions(
+                      polygonStyle: (feature) {
+                        return Paint()
+                          ..style = PaintingStyle.stroke
+                          ..color = Colors.purple
+                          ..strokeWidth = 5
+                          ..isAntiAlias = true;
+                      }
+                  ),
+
                 ),
               ])
     ]);
