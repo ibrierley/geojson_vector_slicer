@@ -60,7 +60,7 @@ featuresHaveSameStyle: true if all geometry has the same color. This may give a 
 ```
 
 
-Available  GeoJSONOptions are:
+Available  GeoJSONOptions are: (polygonFunc and lineStringFunc to be implementated, but styles work)
 
 ```
 
