@@ -5,23 +5,24 @@ import 'clip.dart';
 import 'simplify.dart';
 import 'feature.dart';
 
+
 List convert( Map data, GeoJSONVTOptions options ) {
   List features = [];
   final shortKeys = options.shortKeys;
-  final type = data[Feature.keyLookupString("type", shortKeys)];
+  final type = data["type"];
 
-  if(type == Feature.keyLookupString("FeatureCollection", shortKeys)) {
-    final f = data[Feature.keyLookupString("features", shortKeys)];
+  if(type == "FeatureCollection") {
+    final f = data["features"];
     for (int i = 0; i < f.length; i++) {
       convertFeature(features, f[i], options, i);
     }
-  } else if (type == Feature.keyLookupString("Feature", shortKeys)) {
+  } else if (type == "Feature") {
     convertFeature(features, data, options, null);
 
   } else {
 
     // single geometry or a geometry collection
-    convertFeature(features, {Feature.keyLookupString("geometry", shortKeys): data}, options, null);
+    convertFeature(features, {"geometry": data}, options, null);
   }
 
   return features;
@@ -30,20 +31,26 @@ List convert( Map data, GeoJSONVTOptions options ) {
 void convertFeature( List featureCollection, geojson, options, index ) {
   final shortKeys = options.shortKeys;
 
-  final geomString = Feature.keyLookupString("geometry", shortKeys);
-  final propString = Feature.keyLookupString("properties", shortKeys);
+  final geomString = "geometry";
+  final propString = "properties";
 
   if (geomString == null || geomString.isEmpty) return;
-  var type = geojson[geomString][Feature.keyLookupString("type", shortKeys)];
+  var type = geojson[geomString]["type"];
 
   var featureType = Feature.stringToFeatureType(type);
 
-  var coords = geojson[geomString][Feature.keyLookupString("coordinates", shortKeys)];
+  var coords = geojson[geomString]["coordinates"];
 
   var tolerance = math.pow(options.tolerance / ((1 << options.maxZoom) * options.extent), 2);
 
   List geometry = [];
   var id = geojson['id'];
+
+  print("${options.keepSource}");
+  if(options.keepSource) {
+
+    geojson[propString]['source'] = geojson;
+  }
 
   if (options.promoteId != null) {
     id = geojson[propString][options.promoteId];

@@ -152,9 +152,10 @@ class GeoJSONVTOptions {
   bool generateId; // whether to generate feature ids. Cannot be used with promoteId
   int debug; // logging level (0, 1 or 2)
   bool shortKeys;
+  bool keepSource;
 
   GeoJSONVTOptions({this.maxZoom = 14, this.indexMaxZoom = 5, this.indexMaxPoints = 100000,
     this.tolerance = 3, this.extent = 4096, this.buffer = 64, this.lineMetrics = false, this.promoteId = null,
-    this.generateId = false, this.debug = 2, this.shortKeys = false
+    this.generateId = false, this.debug = 2, this.shortKeys = false, this.keepSource = false
   });
 }

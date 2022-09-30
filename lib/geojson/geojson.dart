@@ -14,7 +14,7 @@ import 'dart:developer' as dev;
 
 
 class GeoJSON {
-  Future<GeoJSONVT> createIndex(String? jsonString, { GeoJSONVTOptions? options, num tileSize = 256, geoJsonMap }) async  {
+  Future<GeoJSONVT> createIndex(String? jsonString, { GeoJSONVTOptions? options, num tileSize = 256, geoJsonMap, keepSource = false, buffer = 32 }) async  {
     Map geoMap;
     if(geoJsonMap != null) {
       geoMap = geoJsonMap;
@@ -26,10 +26,11 @@ class GeoJSON {
 
     options ??= GeoJSONVTOptions(
           debug : 0,
-          buffer : 64,
+          buffer : buffer,
           maxZoom: 22,
           indexMaxZoom: 22,
           indexMaxPoints: 10000000,
+          keepSource: keepSource,
           tolerance : 0, // 1 is probably ok, 2+ may be odd if you have adjacent polys lined up and gets simplified
           extent: tileSize.toInt());
     

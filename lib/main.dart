@@ -73,7 +73,7 @@ class _MyHomePageState extends State<MyHomePage> {
       //var geoPointMap = TestData().getSamplePointGeoJSON(100);
       //geoJsonIndex = await geoJSON.createIndex(null, tileSize: tileSize, geoJsonMap: geoPointMap);
       //geoJsonIndex = await geoJSON.createIndex('assets/test.json', tileSize: 256);
-      geoJsonIndex = await geoJSON.createIndex('assets/US_County_Boundaries.json', tileSize: tileSize);
+      geoJsonIndex = await geoJSON.createIndex('assets/US_County_Boundaries.json', tileSize: tileSize, keepSource: true, buffer: 32);
       //geoJsonIndex = await geoJSON.createIndex('assets/us_test.json', tileSize: tileSize);
       //geoJsonIndex = await geoJSON.createIndex('assets/ids.json', tileSize: tileSize);
       //geoJsonIndex = await geoJSON.createIndex('assets/polygon_hole.json', tileSize: 256);
@@ -115,8 +115,9 @@ class _MyHomePageState extends State<MyHomePage> {
 
                     if (feature.type != 1) {
                       if(geoJSON.isGeoPointInPoly(pt, polygonList, size: tileSize)) {
-                         infoText = "${feature.tags['NAME']}, ${feature.tags['NAME']} tapped";
+                         infoText = "${feature.tags['NAME']}, ${feature.tags['COUNTY']} tapped";
                          print("$infoText");
+                         print("${feature.tags}");
                          if(feature.tags.containsKey('NAME')) {
                            featureSelected = "${feature.tags['NAME']}_${feature.tags['COUNTY']}";
                          }
