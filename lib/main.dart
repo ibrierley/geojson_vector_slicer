@@ -117,7 +117,7 @@ class _MyHomePageState extends State<MyHomePage> {
                       if(geoJSON.isGeoPointInPoly(pt, polygonList, size: tileSize)) {
                          infoText = "${feature.tags['NAME']}, ${feature.tags['COUNTY']} tapped";
                          print("$infoText");
-                         print("${feature.tags}");
+                         print("source IS ${feature.tags['source']}");
                          if(feature.tags.containsKey('NAME')) {
                            featureSelected = "${feature.tags['NAME']}_${feature.tags['COUNTY']}";
                          }

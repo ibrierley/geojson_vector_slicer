@@ -46,9 +46,7 @@ void convertFeature( List featureCollection, geojson, options, index ) {
   List geometry = [];
   var id = geojson['id'];
 
-  print("${options.keepSource}");
   if(options.keepSource) {
-
     geojson[propString]['source'] = geojson;
   }
 
