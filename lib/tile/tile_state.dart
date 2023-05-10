@@ -55,7 +55,7 @@ class TileState {
   final mapState;
   double _tileZoom = 12;
   double maxZoom = 20;
-  CustomPoint tileSize;
+  CustomPoint<double> tileSize;
 
   Tuple2<double, double>? _wrapX;
   Tuple2<double, double>? _wrapY;
@@ -72,12 +72,12 @@ class TileState {
 
   Bounds getTiledPixelBounds(FlutterMapState mapState) {
     var scale = mapState.getZoomScale(mapState.zoom, _tileZoom);
-    var pixelCenter = mapState.project(mapState.center, _tileZoom).floor();
+    var pixelCenter = mapState.project(mapState.center, _tileZoom);
     var halfSize = mapState.size / (scale * 2);
     return Bounds(pixelCenter - halfSize, pixelCenter + halfSize);
   }
 
-  Bounds pxBoundsToTileRange(Bounds bounds,[tileSize = 256]) {
+  Bounds pxBoundsToTileRange(Bounds bounds,[num tileSize = 256]) {
     final tsPoint = CustomPoint(tileSize,tileSize);
 
     return Bounds(

@@ -98,7 +98,7 @@ class _MyHomePageState extends State<MyHomePage> {
             mapController: mapController,
             options: MapOptions(
               //allowPanningOnScrollingParent: false,
-              absorbPanEventsOnScrollables: false,
+
               onTap: (tapPosition, point) async {
                 featureSelected = null;
                 // figure which tile we're on, then grab that tiles features to loop through

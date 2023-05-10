@@ -4,7 +4,7 @@ import 'package:flutter_map/plugin_api.dart';
 import 'dart:async';
 import 'dart:ui' as dartui;
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
-import '../tile/tile_state.dart' hide Coords;
+import '../tile/tile_state.dart' ;
 import '../geojson/classes.dart';
 import '../geojson/geojson_options.dart';
 import '../vector_tile/vector_tile.pb.dart' as vector_tile;

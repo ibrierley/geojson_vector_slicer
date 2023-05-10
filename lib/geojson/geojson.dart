@@ -72,7 +72,7 @@ class GeoJSON {
   }
 
   // experimental, not sure this still works. rework to use with canvas, not widgets ???
-  Widget getClusters(FlutterMapState mapState, index, stream, markerFunc, CustomPoint size) {
+  Widget getClusters(FlutterMapState mapState, index, stream, markerFunc, CustomPoint<double> size) {
 
     List<Positioned> markers = [];
 
